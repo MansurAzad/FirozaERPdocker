@@ -1,0 +1,33 @@
+# MOBILE D-ERP Roadmap
+- [x] Stabilize Brand Shops at 320/390/780/1280px; seven tabs and fictional shop create/read/rename/delete verified, test shops removed
+- [x] Audit app CRUD and connections; 37 authenticated static pages render; shop ↔ branch maintenance connected, master writes tenant-scoped and related queries refreshed. Posted finance/stock/history remain protected; not every financial write was exercised against live records.
+- [x] Complete six shop accounts with date-filtered separate sales, expenses, stock and exported reports; all six read paths, Excel export, shop-specific expense form and existing posted-record snapshot verified without inserting live transactions
+- [x] Dynamic owner-editable FIROZA ENTERPRISE branding across login, pages and documents; owner rename/save/reload, public home/login and existing invoice verified; test name restored
+- [x] Firoza homepage — identity, two authenticated entry buttons, automatic House & Stock menu
+- [x] Six brand shops — branch-linked setup, stock and transaction accounting; verify both entry flows
+- [x] Architecture, ERD, dependency map (docs/ARCHITECTURE.md)
+- [x] Phase 1 — Auth, onboarding, branches, users/roles, brands, categories, products, customers, suppliers, audit log, EN/বাং toggle, demo data
+- [x] Phase 2a — Purchases (IMEI entry, landed cost, partial pay), Stock, IMEI search, supplier due
+- [x] Phase 2b — Sales (IMEI scan/pick, price levels, credit check + manager override, split payments, COGS journal), invoice print, Customer due + aging, due collection
+- [x] Phase 2c — Sales return, Purchase return, customer/supplier ledger page, opening-balance journals
+- [x] Phase 3 — Cash & Bank accounts, cash in/out, transfers, expenses, supplier payments, auto journals, P&L, Balance Sheet, Trial Balance, Daily closing
+- [x] Accounting CRUD (reverse & re-enter), manual journals + reversal, COA CRUD, Backup/Restore/Reset (owner)
+- [ ] Phase 3b — Bank reconciliation, attachments on expenses
+- [x] Phase 4 — Stock transfer (dispatch/receive, IMEI-level), Warranty claims, Salesman commission, Business reports
+- [ ] Phase 4b — Commission payouts, transfer approval step, dead/slow-moving stock, report export
+- [x] Guardian phase 1 — automatic checks + alerts + small auto-fixes
+- [x] Guardian 2 — Owner dashboard and live AI briefing; verified authenticated metrics and follow-up
+- [x] Guardian 3 — Session-only read-only chat, Stop, editable voice wiring and permission fallback; microphone hardware needs user testing
+- [x] Guardian 4 — Company profile save/reload verified; test value restored
+- [x] Guardian 5 — Live anomaly reports, severity/period filters and PDF/Excel exports verified
+- [x] Fresh consistency/sync audit — 17 database checks and Guardian flows verified; manual-check failure fixed; scope and remaining limits in docs/GUARDIAN_REVIEW.md
+- [x] Review loss sale and low-stock item — safe recommendations supplied in owner overview and AI; no sale/stock corrections applied
+- [ ] Phase 5 — Analytics, AI assistant
+
+- [x] Homepage colors applied to login and all app pages
+- [x] Daily reports settings: multiple recipients, separate house/shop summaries, WhatsApp/social sharing
+- [x] Daily summary emails at day close / midnight via Resend (sending starts once firozaenterprise.com DNS is verified in Resend)
+- [x] Two-device offline test (fictional record): first device synced, second rejected as duplicate and shown as failed with guidance; test data removed
+- [x] Offline sync history page (pending/completed/failed/discarded, timestamps, safe retry guide)
+- [x] Visitors & usage log in Admin (in-app page visits by staff, per page/person/device)
+- [x] Publish latest PWA changes

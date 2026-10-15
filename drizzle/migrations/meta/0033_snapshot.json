@@ -1,0 +1,17 @@
+{
+  "id": "c4e9a1b7-2d58-4f31-b0a6-9e73c5d4f8b1",
+  "prevId": "8b6f1d92-4c07-4e53-a1d8-2f9c6b0e7a34",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "policies": {},
+  "checkConstraints": {},
+  "primaryKeys": {},
+  "foreignKeys": {},
+  "compositePrimaryKeys": {},
+  "uniqueConstraints": {}
+}

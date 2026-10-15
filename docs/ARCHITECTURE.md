@@ -1,0 +1,105 @@
+# MOBILE D-ERP — Product Architecture
+> মোবাইল ব্যবসার সম্পূর্ণ ডিজিটাল ব্যবস্থাপনা
+
+## 1. Platform
+- Frontend: React 19 + TanStack Start/Router/Query, Tailwind v4, shadcn/ui, React Hook Form, Zod.
+- Backend: TanStack server functions (typed RPC) instead of Express; runs on edge workers.
+- Database: PostgreSQL (Lovable Cloud) with RLS for tenant isolation, NUMERIC(14,2) for money.
+- Critical business transactions (sale, purchase, return, payment, transfer) run as **Postgres functions (RPC)** so every step commits or rolls back together.
+- Auth: email/password + Google; roles in `user_roles` with a `has_permission()` security-definer function, enforced in RLS and server functions.
+
+## 2. Tenant model
+```text
+businesses 1─* branches 1─* warehouses
+businesses 1─* business_members (user_id, role, branch scope)
+every business table: business_id NOT NULL + RLS: is_member(business_id)
+```
+
+## 3. Module dependency map
+```text
+Auth ─► Business ─► Branch/Warehouse ─► Users/Roles/Permissions
+                         │
+      ┌──────────────────┼───────────────────┐
+  Products            Customers           Suppliers
+ (Brand→Model→Variant)   │                   │
+      │                  │                   │
+      └──► Purchase ◄────┼───────────────────┘
+              │ (IMEI entry, landed cost)
+              ▼
+         Inventory / IMEI ◄──── Stock Transfer / Adjustment
+              │
+              ▼
+            Sales ──► Sales Return / Warranty / Commission
+              │
+              ▼
+   Payments (Cash · Bank · bKash · Nagad · Rocket · Card · Cheque)
+              │
+              ▼
+   Accounting engine (auto journal) ─► Ledgers ─► P&L / Balance Sheet
+              │
+              ▼
+        Reports ─► Analytics ─► AI assistant (future)
+```
+
+## 4. Core ERD (Phase 1–3)
+```text
+businesses(id, name, type[retail|wholesale|both], currency, logo_url)
+branches(id, business_id, name, kind[head|branch|warehouse])
+business_members(id, business_id, user_id, role, branch_id?)
+role_permissions(role, module, action)
+
+brands(id, business_id, name)
+categories(id, business_id, name, is_serialized)
+products(id, business_id, brand_id, category_id, model, sku)
+product_variants(id, product_id, ram, storage, color,
+  purchase_price, wholesale_price, dealer_price, retail_price,
+  min_price, reorder_level, warranty_months, status)
+product_imeis(id, business_id, variant_id, imei1 UNIQUE, imei2, serial,
+  status[IN_STOCK|RESERVED|SOLD|RETURNED|WARRANTY], branch_id,
+  purchase_item_id, sale_item_id, cost)
+
+customers(id, business_id, name, business_name, mobile, nid, trade_license,
+  type, price_level, credit_limit, payment_terms_days, opening_balance)
+suppliers(id, business_id, name, company, mobile, bank_info, opening_payable, terms_days)
+
+purchases(id, business_id, branch_id, supplier_id, invoice_no, date,
+  subtotal, discount, tax, transport, loading, other_cost, total, paid, due, status)
+purchase_items(id, purchase_id, variant_id, qty, rate, landed_unit_cost)
+sales(id, business_id, branch_id, customer_id, salesman_id, invoice_no, date,
+  subtotal, discount, tax, total, paid, due, cogs, status)
+sale_items(id, sale_id, variant_id, imei_id?, qty, price, unit_cost)
+payments(id, business_id, direction[in|out], party_type, party_id, ref_type, ref_id,
+  method, account_id, txn_id, amount, date)
+
+stock(business_id, branch_id, variant_id, qty, avg_cost)  PK(branch, variant)
+stock_movements(id, variant_id, branch_id, qty_change, unit_cost, ref_type, ref_id)
+
+money_accounts(id, business_id, kind[cash|bank|mfs], name, bank, acct_no, opening_balance)
+expenses(id, business_id, branch_id, category_id, account_id, amount, date, note, attachment)
+
+accounts(id, business_id, code, name, type[asset|liability|equity|revenue|expense])
+journal_entries(id, business_id, date, ref_type, ref_id, memo, reversed_by)
+journal_lines(id, entry_id, account_id, debit, credit)   CHECK sum(debit)=sum(credit)
+
+customer_ledger / supplier_ledger → SQL views over sales, payments, returns
+audit_logs(id, business_id, user_id, module, action, record_id, old, new, at)
+```
+
+## 5. Automatic journal rules
+| Event | Debit | Credit |
+|---|---|---|
+| Cash sale | Cash/Bank | Sales Revenue |
+| Credit sale | Customer Due (AR) | Sales Revenue |
+| Every sale | COGS | Inventory |
+| Customer payment | Cash/Bank | Customer Due |
+| Purchase | Inventory | Supplier Due (AP) / Cash |
+| Supplier payment | Supplier Due | Cash/Bank |
+| Expense | Expense account | Cash/Bank |
+| Returns | reverse of original |
+
+## 6. Phases
+1. Foundation: auth, onboarding (business type), branches, members/roles, products, brands, categories, customers, suppliers.
+2. Core: purchase + IMEI + landed cost, sales + IMEI pick + price levels, stock, dues, payments.
+3. Financial: cash, bank, expenses, accounting engine, ledgers, P&L, balance sheet, daily closing.
+4. Advanced: dealers/credit override, warranty, commission, stock transfer, returns, reports.
+5. Intelligence: analytics, alerts, forecasting, AI assistant (Bangla Q&A).

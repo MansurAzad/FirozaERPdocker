@@ -1,0 +1,10 @@
+CREATE TABLE public.site_branding (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), business_id uuid NOT NULL REFERENCES public.businesses(id), name text NOT NULL, singleton boolean NOT NULL DEFAULT true UNIQUE CHECK(singleton));
+GRANT SELECT(name) ON public.site_branding TO anon, authenticated;
+GRANT ALL ON public.site_branding TO service_role;
+ALTER TABLE public.site_branding ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public company display name" ON public.site_branding FOR SELECT TO anon, authenticated USING(true);
+CREATE TRIGGER site_branding_audit AFTER INSERT OR UPDATE OR DELETE ON public.site_branding FOR EACH ROW EXECUTE FUNCTION public.audit_row();
+INSERT INTO public.site_branding(business_id,name) SELECT id,name FROM public.businesses WHERE id='ab8bdc5b-e276-4da9-a810-88e82702c695';
+CREATE OR REPLACE FUNCTION public.sync_site_branding() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN UPDATE public.site_branding SET name=NEW.name WHERE business_id=NEW.id; RETURN NEW; END $$;
+CREATE TRIGGER businesses_sync_site_branding AFTER UPDATE OF name ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.sync_site_branding();
+REVOKE ALL ON FUNCTION public.sync_site_branding() FROM PUBLIC,anon,authenticated;

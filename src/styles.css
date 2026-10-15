@@ -1,0 +1,204 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-highlight: var(--highlight);
+  --color-success: var(--success);
+  --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.975 0.008 160);
+  --foreground: oklch(0.29 0.055 185);
+  --card: oklch(0.995 0.004 170);
+  --card-foreground: oklch(0.29 0.055 185);
+  --popover: oklch(0.995 0.004 170);
+  --popover-foreground: oklch(0.29 0.055 185);
+  --primary: oklch(0.46 0.09 183);
+  --primary-foreground: oklch(0.99 0.006 170);
+  --secondary: oklch(0.945 0.015 165);
+  --secondary-foreground: oklch(0.32 0.065 183);
+  --muted: oklch(0.955 0.012 165);
+  --muted-foreground: oklch(0.48 0.035 185);
+  --accent: oklch(0.93 0.045 87);
+  --accent-foreground: oklch(0.36 0.07 70);
+  --highlight: oklch(0.77 0.11 82);
+  --success: oklch(0.55 0.12 155);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.89 0.02 170);
+  --input: oklch(0.87 0.022 170);
+  --ring: oklch(0.46 0.09 183);
+  --chart-1: oklch(0.46 0.09 183);
+  --chart-2: oklch(0.77 0.11 82);
+  --chart-3: oklch(0.32 0.065 183);
+  --chart-4: oklch(0.65 0.1 30);
+  --chart-5: oklch(0.6 0.05 200);
+  --sidebar: oklch(0.29 0.055 185);
+  --sidebar-foreground: oklch(0.88 0.02 170);
+  --sidebar-primary: oklch(0.77 0.11 82);
+  --sidebar-primary-foreground: oklch(0.29 0.055 185);
+  --sidebar-accent: oklch(0.35 0.06 185);
+  --sidebar-accent-foreground: oklch(0.99 0.006 170);
+  --sidebar-border: oklch(0.38 0.05 185);
+  --sidebar-ring: oklch(0.77 0.11 82);
+}
+
+.dark {
+  --background: oklch(0.18 0.02 250);
+  --foreground: oklch(0.95 0.01 85);
+  --card: oklch(0.22 0.025 250);
+  --card-foreground: oklch(0.95 0.01 85);
+  --popover: oklch(0.22 0.025 250);
+  --popover-foreground: oklch(0.95 0.01 85);
+  --primary: oklch(0.7 0.11 165);
+  --primary-foreground: oklch(0.18 0.02 250);
+  --secondary: oklch(0.27 0.025 250);
+  --secondary-foreground: oklch(0.95 0.01 85);
+  --muted: oklch(0.27 0.025 250);
+  --muted-foreground: oklch(0.7 0.02 250);
+  --accent: oklch(0.32 0.05 75);
+  --accent-foreground: oklch(0.95 0.05 80);
+  --highlight: oklch(0.78 0.14 75);
+  --success: oklch(0.7 0.12 155);
+  --destructive: oklch(0.65 0.19 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.7 0.11 165);
+  --chart-1: oklch(0.7 0.11 165);
+  --chart-2: oklch(0.78 0.14 75);
+  --chart-3: oklch(0.7 0.06 250);
+  --chart-4: oklch(0.7 0.1 30);
+  --chart-5: oklch(0.7 0.05 200);
+  --sidebar: oklch(0.15 0.02 250);
+  --sidebar-foreground: oklch(0.88 0.01 250);
+  --sidebar-primary: oklch(0.78 0.14 75);
+  --sidebar-primary-foreground: oklch(0.2 0.03 250);
+  --sidebar-accent: oklch(0.22 0.025 250);
+  --sidebar-accent-foreground: oklch(0.97 0.01 85);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.78 0.14 75);
+}
+
+@layer base {
+  html { scrollbar-gutter: stable; }
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
+  .num { font-variant-numeric: tabular-nums; }
+}
+
+:root {
+  --firoza-paper: oklch(0.975 0.008 160);
+  --firoza-ink: oklch(0.29 0.055 185);
+  --firoza-teal: oklch(0.46 0.09 183);
+  --firoza-teal-top: oklch(0.55 0.09 179);
+  --firoza-teal-edge: oklch(0.32 0.065 183);
+  --firoza-brass: oklch(0.77 0.11 82);
+  --firoza-brass-top: oklch(0.86 0.095 87);
+  --firoza-brass-edge: oklch(0.59 0.095 78);
+  --firoza-light: oklch(0.99 0.006 170);
+  --firoza-shadow: oklch(0.25 0.045 180 / 14%);
+}
+.firoza-home { position: relative; isolation: isolate; min-height: 100svh; overflow: hidden; background: var(--firoza-paper); color: var(--firoza-ink); display: flex; flex-direction: column; align-items: center; padding: 44px 24px 64px; }
+.firoza-watermarks { position: absolute; z-index: -1; inset: -100px -160px; display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 65px 45px; transform: rotate(-22deg); opacity: .045; pointer-events: none; }
+.firoza-watermarks > div { display: flex; align-items: center; justify-content: center; gap: 9px; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.firoza-watermarks img { width: 36px; height: 36px; object-fit: contain; }
+.firoza-identity { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.firoza-identity > img { width: 110px; height: 110px; object-fit: contain; }
+.firoza-identity h1 { font-size: 32px; font-weight: 700; margin-top: 6px; line-height: 1.3; }
+.firoza-identity h1 span { font-weight: 400; }
+.firoza-rule { width: 42px; height: 3px; background: var(--firoza-brass); margin-top: 23px; }
+.firoza-entries { display: grid; grid-template-columns: repeat(2, 244px); gap: 38px; margin: auto 0; padding: 65px 0 80px; }
+.firoza-tile.firoza-tile { position: relative; width: 100%; height: auto; aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; gap: 24px; border: 1px solid color-mix(in oklab, var(--firoza-light) 25%, transparent); white-space: normal; font-size: 25px; font-weight: 600; transition: transform .2s, box-shadow .2s; }
+.firoza-shop.firoza-shop { background: linear-gradient(145deg, var(--firoza-teal-top), var(--firoza-teal)); color: var(--firoza-light); box-shadow: 0 8px 0 var(--firoza-teal-edge), 0 20px 30px var(--firoza-shadow), inset 0 1px 0 color-mix(in oklab, var(--firoza-light) 40%, transparent); }
+.firoza-house.firoza-house { background: linear-gradient(145deg, var(--firoza-brass-top), var(--firoza-brass)); color: var(--firoza-ink); box-shadow: 0 8px 0 var(--firoza-brass-edge), 0 20px 30px var(--firoza-shadow), inset 0 1px 0 color-mix(in oklab, var(--firoza-light) 65%, transparent); }
+.firoza-tile:hover { transform: translateY(-4px); }
+.firoza-tile:active { transform: translateY(5px); }
+.firoza-tile-icon { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%; background: color-mix(in oklab, currentColor 8%, transparent); }
+.firoza-tile-icon svg { width: 46px; height: 46px; }
+.firoza-tile-arrow.firoza-tile-arrow { position: absolute; top: 19px; right: 19px; width: 20px; height: 20px; opacity: .6; }
+@media (max-height: 650px) and (min-width: 600px) { .firoza-home { padding-top: 20px; padding-bottom: 35px; } .firoza-identity > img { width: 75px; height: 75px; } .firoza-entries { grid-template-columns: repeat(2, 200px); padding: 35px 0 20px; } }
+@media (max-width: 599px) { .firoza-home { padding: 42px 22px 60px; } .firoza-identity h1 { font-size: 24px; } .firoza-entries { width: 100%; max-width: 390px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 60px 0 100px; } .firoza-tile.firoza-tile { font-size: 20px; gap: 17px; } .firoza-tile-icon { width: 56px; height: 56px; } .firoza-tile-icon svg { width: 34px; height: 34px; } .firoza-tile-arrow.firoza-tile-arrow { top: 12px; right: 12px; width: 16px; height: 16px; } }
+@media (prefers-reduced-motion: reduce) { .firoza-tile.firoza-tile { transition: none; } }
+@media print {
+  aside, [aria-label="Show sidebar"], [aria-label="Hide sidebar"] { display: none !important; }
+  main { padding: 0 !important; }
+}
+
+html[data-fs] body { padding-top: 2rem; }
+
+@media (max-width: 767px) {
+  .app-mobile-content { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  body:has(.mobile-bottom-nav) .offline-status-trigger { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+}
+@media print {
+  .app-mobile-content { padding-bottom: 0; }
+}

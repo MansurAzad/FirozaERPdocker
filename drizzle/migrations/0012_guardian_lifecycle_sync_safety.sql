@@ -1,0 +1,24 @@
+DO $$ DECLARE d text; BEGIN
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='guardian_snapshot';
+ d:=replace(d,$old$IF NOT public.has_biz_role(_biz,ARRAY['owner','manager','accountant']::member_role[]) THEN$old$,$new$IF NOT public.has_biz_role(_biz,ARRAY['owner','manager','accountant']::member_role[]) AND NOT (auth.uid() IS NULL AND current_user IN ('postgres','supabase_admin')) THEN$new$);
+ d:=replace(d,$old$public.money_balance(m.id,current_date)$old$,$new$m.opening_balance + coalesce((SELECT sum(CASE WHEN t.direction='in' THEN t.amount ELSE -t.amount END) FROM money_transactions t WHERE t.business_id=_biz AND t.account_id=m.id),0)$new$); EXECUTE d;
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='_biz_tables';
+ d:=replace(d,$old$'warranty_claims','daily_closings'$old$,$new$'warranty_claims','daily_closings','guardian_alerts','guardian_runs'$new$); EXECUTE d;
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='_wipe_business';
+ d:=replace(d,$old$  delete from daily_closings where business_id=_biz;$old$,$new$  delete from guardian_alerts where business_id=_biz;
+  delete from guardian_runs where business_id=_biz;
+  delete from daily_closings where business_id=_biz;$new$); EXECUTE d;
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='export_business';
+ d:=replace(d,$old$'business_name',(select name from businesses where id=_biz)$old$,$new$'company',(select jsonb_build_object('name',name,'phone',phone,'address',address,'trade_license',trade_license,'guardian_profile',guardian_profile) from businesses where id=_biz),'business_name',(select name from businesses where id=_biz)$new$); EXECUTE d;
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='restore_business';
+ d:=replace(d,$old$  perform set_config('app.bulk','off',true);$old$,$new$  IF _data ? 'company' THEN UPDATE businesses SET name=coalesce(_data->'company'->>'name',name), phone=_data->'company'->>'phone',address=_data->'company'->>'address',trade_license=_data->'company'->>'trade_license',guardian_profile=coalesce(_data->'company'->'guardian_profile','{}'::jsonb) WHERE id=_biz; END IF;
+  perform set_config('app.bulk','off',true);$new$); EXECUTE d;
+ SELECT pg_get_functiondef(oid) INTO d FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='_guardian_run';
+ d:=replace(d,$old$  INSERT INTO _g SELECT 'unbalanced_journal'$old$,$new$  INSERT INTO _g SELECT 'invalid_mobile_format','low','Invalid customer mobile', name||': '||mobile,'customer',id,'invalid_mobile:'||id FROM customers WHERE business_id=_biz AND mobile !~ '^01[3-9][0-9]{8}$';
+  INSERT INTO _g SELECT 'invalid_mobile_format','low','Invalid supplier mobile',name||': '||mobile,'supplier',id,'invalid_mobile:'||id FROM suppliers WHERE business_id=_biz AND mobile !~ '^01[3-9][0-9]{8}$';
+  INSERT INTO _g SELECT 'unbalanced_journal'$new$); EXECUTE d;
+END $$;
+CREATE TRIGGER audit_guardian_runs AFTER INSERT OR UPDATE OR DELETE ON public.guardian_runs FOR EACH ROW EXECUTE FUNCTION public.audit_row();
+CREATE OR REPLACE FUNCTION public.audit_business_profile() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN IF public._bulk() THEN RETURN NEW; END IF; IF (OLD.name,OLD.phone,OLD.address,OLD.trade_license,OLD.guardian_profile) IS DISTINCT FROM (NEW.name,NEW.phone,NEW.address,NEW.trade_license,NEW.guardian_profile) THEN INSERT INTO audit_logs(business_id,user_id,module,action,record_id,old_value,new_value) VALUES(NEW.id,auth.uid(),'company_profile','update',NEW.id,to_jsonb(OLD)-'guardian_ai_block',to_jsonb(NEW)-'guardian_ai_block'); END IF; RETURN NEW; END $$;
+REVOKE ALL ON FUNCTION public.audit_business_profile() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER audit_business_profile AFTER UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.audit_business_profile();
