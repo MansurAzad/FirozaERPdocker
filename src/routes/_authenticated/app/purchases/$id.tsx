@@ -72,6 +72,12 @@ function PurchaseDetail() {
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (error || !data) return <p className="text-sm text-destructive">{friendlyError(error)}</p>;
   const { p, items, pays, rets } = data;
+  const paid = pays.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const returnCredit = rets.reduce(
+    (sum, purchaseReturn) => sum + Number(purchaseReturn.total) - Number(purchaseReturn.refund),
+    0,
+  );
+  const supplierDue = Number(p.total) - paid - returnCredit;
   const extras: [string, number][] = [
     ["Discount", -Number(p.discount)],
     ["VAT / Tax", Number(p.tax)],
@@ -149,8 +155,8 @@ function PurchaseDetail() {
       <div className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
         {[
           ["Actual cost", p.total],
-          ["Paid", p.paid],
-          ["Supplier due", p.due],
+          ["Paid", paid],
+          ["Supplier due", supplierDue],
         ].map(([l, v]) => (
           <div key={l as string} className="bg-card p-4">
             <div className="text-xs uppercase text-muted-foreground">{l}</div>
