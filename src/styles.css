@@ -141,7 +141,6 @@
 }
 
 @layer base {
-  html { scrollbar-gutter: stable; }
   * {
     border-color: var(--color-border);
   }
@@ -191,9 +190,14 @@
 @media print {
   aside, [aria-label="Show sidebar"], [aria-label="Hide sidebar"] { display: none !important; }
   main { padding: 0 !important; }
+  .app-shell { display: block !important; height: auto !important; overflow: visible !important; }
+  .app-mobile-content { height: auto !important; overflow: visible !important; }
 }
 
-html[data-fs] body { padding-top: 2rem; }
+.app-mobile-content { scrollbar-gutter: stable; }
+@media (min-width: 768px) {
+  html[data-fs] .app-header { padding-right: 9rem; }
+}
 
 @media (max-width: 767px) {
   .app-mobile-content { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }

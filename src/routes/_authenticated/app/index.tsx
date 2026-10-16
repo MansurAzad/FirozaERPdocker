@@ -1,7 +1,6 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Package, Users, Handshake, GitBranch, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
@@ -86,9 +85,8 @@ function lastDays(n: number) {
 }
 
 function Dashboard() {
-  const { business, role } = useBusiness();
+  const { business } = useBusiness();
   const { t } = useI18n();
-  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["dash", business.id],
     queryFn: async () => {
@@ -246,18 +244,6 @@ function Dashboard() {
     },
   });
 
-  const demo = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("load_demo_data", { _biz: business.id });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Demo data loaded");
-      qc.invalidateQueries();
-    },
-    onError: (e) => toast.error(friendlyError(e)),
-  });
-
   const money = [
     {
       k: "todaySales" as const,
@@ -305,8 +291,6 @@ function Dashboard() {
       to: "/app/branches" as const,
     },
   ];
-  const isEmpty = data && data.products === 0 && data.customers === 0;
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -314,11 +298,6 @@ function Dashboard() {
           <h1 className="text-2xl font-bold">{t("dashboard")}</h1>
           <p className="text-sm text-muted-foreground">{t("tagline")}</p>
         </div>
-        {isEmpty && role === "owner" && (
-          <Button variant="outline" onClick={() => demo.mutate()} disabled={demo.isPending}>
-            {t("loadDemo")}
-          </Button>
-        )}
       </div>
 
       <div className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4">

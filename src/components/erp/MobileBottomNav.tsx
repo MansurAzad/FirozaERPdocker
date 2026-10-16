@@ -9,13 +9,6 @@ export function MobileBottomNav({ onMenu, menuOpen }: { onMenu: () => void; menu
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const items = [
     {
-      to: "/app",
-      icon: House,
-      en: "Home",
-      bn: "হোম",
-      active: pathname === "/app" || pathname === "/app/",
-    },
-    {
       to: "/app/sales/new",
       icon: ShoppingCart,
       en: "Sales",
@@ -23,6 +16,13 @@ export function MobileBottomNav({ onMenu, menuOpen }: { onMenu: () => void; menu
       active: pathname.startsWith("/app/sales"),
     },
     { to: "/app/stock", icon: Boxes, en: "Stock", bn: "স্টক", active: pathname === "/app/stock" },
+    {
+      to: "/app",
+      icon: House,
+      en: "Home",
+      bn: "হোম",
+      active: pathname === "/app" || pathname === "/app/",
+    },
     { to: "/app/money", icon: Wallet, en: "Money", bn: "হিসাব", active: pathname === "/app/money" },
   ] as const;
   const itemClass =

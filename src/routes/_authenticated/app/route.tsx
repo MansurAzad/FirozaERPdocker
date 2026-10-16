@@ -9,6 +9,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import emblem from "@/assets/firoza-emblem.png";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -200,12 +201,14 @@ const NAV: { group?: string; items: NavItem[] }[] = [
   },
 ];
 
-function SidebarNav({ onNav }: { onNav?: () => void }) {
+function SidebarNav({ onNav, compact = false }: { onNav?: () => void; compact?: boolean }) {
   const { t } = useI18n();
   const { role } = useBusiness();
   const hasRole = (r?: Role[]) => !r || r.includes(role);
   return (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <nav
+      className={cn("flex-1 overflow-y-auto px-3", compact ? "space-y-3 py-2" : "space-y-5 py-4")}
+    >
       {NAV.map((g, i) => (
         <div key={i}>
           {g.group && (
@@ -233,7 +236,10 @@ function SidebarNav({ onNav }: { onNav?: () => void }) {
                   to={it.to ?? "/app"}
                   onClick={onNav}
                   activeOptions={{ exact: it.to === "/app" }}
-                  className="flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  className={cn(
+                    "flex min-h-9 items-center gap-3 rounded-md px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    compact ? "py-1.5" : "py-2",
+                  )}
                   activeProps={{
                     className: "bg-sidebar-accent !text-sidebar-primary font-semibold shadow-sm",
                   }}
@@ -284,16 +290,6 @@ function AppLayout() {
       }),
     [],
   );
-  // Open in full screen on first interaction (browsers need a click/key first).
-  useEffect(() => {
-    if (localStorage.getItem("derp.fullscreen") === "0") return;
-    const go = () => {
-      if (!document.fullscreenElement)
-        document.documentElement.requestFullscreen?.().catch(() => {});
-    };
-    window.addEventListener("pointerdown", go, { once: true });
-    return () => window.removeEventListener("pointerdown", go);
-  }, []);
   const qc = useQueryClient();
   const router = useRouter();
   async function switchBusiness(businessId: string) {
@@ -368,7 +364,7 @@ function AppLayout() {
   }
 
   const brand = (
-    <div className="border-b border-sidebar-border px-5 py-5">
+    <div className="border-b border-sidebar-border px-4 py-3 md:px-5 md:py-5">
       <div className="break-words font-display text-lg font-bold text-sidebar-accent-foreground">
         {business.name}
       </div>
@@ -391,9 +387,9 @@ function AppLayout() {
 
   return (
     <BusinessProvider value={{ business, role, userId: user.id, email: user.email ?? "" }}>
-      <div className="flex min-h-screen w-full min-w-0 overflow-x-clip bg-background">
+      <div className="app-shell flex h-svh min-h-0 w-full min-w-0 touch-manipulation overflow-hidden bg-background">
         {side ? (
-          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar shadow-xl md:flex">
+          <aside className="hidden h-full w-64 shrink-0 flex-col bg-sidebar shadow-xl md:flex">
             {brand}
             <SidebarNav />
             <button
@@ -424,119 +420,157 @@ function AppLayout() {
           businessId={business.id}
         />
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="left" className="flex w-64 flex-col border-0 bg-sidebar p-0">
+          <SheetContent side="right" className="flex w-64 flex-col gap-0 border-0 bg-sidebar p-0">
             {brand}
-            <SidebarNav onNav={() => setOpen(false)} />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void signOut()}
+              className="mx-2 mt-2 h-9 justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              {t("signOut")}
+            </Button>
+            <div className="mx-2 mt-1 flex items-center justify-between rounded-md px-2 py-1 text-sm text-sidebar-foreground">
+              <span>{lang === "bn" ? "ভাষা" : "Language"}</span>
+              <div className="flex rounded-md border border-sidebar-border bg-sidebar-accent p-0.5">
+                {(["en", "bn"] as const).map((language) => (
+                  <Button
+                    key={language}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLang(language)}
+                    className={cn(
+                      "h-7 px-2 text-xs",
+                      lang === language && "bg-card text-foreground shadow-sm hover:bg-card",
+                    )}
+                  >
+                    {language === "en" ? "EN" : "বাং"}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <SidebarNav onNav={() => setOpen(false)} compact />
           </SheetContent>
         </Sheet>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 grid h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur md:px-8 print:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setOpen(true)}
-              aria-label="Menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+          <header className="app-header z-20 grid h-16 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur md:px-8 print:hidden">
             <div className="flex min-w-0 items-center gap-3">
+              <img
+                src={emblem}
+                alt={`${business.name} logo`}
+                className="h-9 w-9 shrink-0 object-contain md:hidden"
+                width={36}
+                height={36}
+              />
               <div className="hidden h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary md:grid">
                 <Building2 className="h-4 w-4 text-primary" />
               </div>
-              <div className="min-w-0">
+              <div className="hidden min-w-0 md:block">
                 <p className="truncate text-sm font-semibold">{business.name}</p>
-                <p className="hidden truncate text-xs text-muted-foreground sm:block">
+                <p className="truncate text-xs text-muted-foreground">
                   {ROLE_LABELS[role]} · {user.email}
                 </p>
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <NotificationBell />
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="relative"
-                title="Owner Guardian alerts"
-              >
-                <Link to="/app/guardian" aria-label="Guardian alerts">
-                  <ShieldAlert
-                    className={cn(
-                      "h-4 w-4",
-                      alertCount ? "text-destructive" : "text-muted-foreground",
+              <div className="hidden items-center gap-2 md:flex">
+                <NotificationBell />
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  title="Owner Guardian alerts"
+                >
+                  <Link to="/app/guardian" aria-label="Guardian alerts">
+                    <ShieldAlert
+                      className={cn(
+                        "h-4 w-4",
+                        alertCount ? "text-destructive" : "text-muted-foreground",
+                      )}
+                    />
+                    {alertCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                        {alertCount}
+                      </span>
                     )}
-                  />
-                  {alertCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                      {alertCount}
-                    </span>
-                  )}
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPalette(true)}
-                className="hidden gap-2 text-muted-foreground md:inline-flex"
-                title="Menu & search (Ctrl+K)"
-              >
-                <Search className="h-4 w-4" />
-                Menu & search<kbd className="rounded border bg-muted px-1 text-[10px]">Ctrl K</kbd>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setPalette(true)}
-                aria-label="Search"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hidden md:inline-flex"
-                onClick={() => {
-                  localStorage.setItem("derp.fullscreen", document.fullscreenElement ? "0" : "1");
-                  toggleFullscreen();
-                }}
-                aria-label="Full screen"
-                title="Full screen (Ctrl+Shift+F)"
-              >
-                <Maximize className="h-4 w-4" />
-              </Button>
-              <div className="flex rounded-md border bg-secondary p-0.5 text-xs">
-                {(["en", "bn"] as const).map((l) => (
-                  <Button
-                    key={l}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLang(l)}
-                    className={cn(
-                      "h-7 px-2 text-xs",
-                      lang === l
-                        ? "bg-card text-foreground shadow-sm hover:bg-card"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {l === "en" ? "EN" : "বাং"}
-                  </Button>
-                ))}
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPalette(true)}
+                  className="hidden gap-2 text-muted-foreground md:inline-flex"
+                  title="Menu & search (Ctrl+K)"
+                >
+                  <Search className="h-4 w-4" />
+                  Menu & search
+                  <kbd className="rounded border bg-muted px-1 text-[10px]">Ctrl K</kbd>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  onClick={() => setPalette(true)}
+                  aria-label="Search"
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden md:inline-flex"
+                  onClick={toggleFullscreen}
+                  aria-label="Full screen"
+                  title="Full screen (Ctrl+Shift+F)"
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+                <div className="flex rounded-md border bg-secondary p-0.5 text-xs">
+                  {(["en", "bn"] as const).map((l) => (
+                    <Button
+                      key={l}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLang(l)}
+                      className={cn(
+                        "h-7 px-2 text-xs",
+                        lang === l
+                          ? "bg-card text-foreground shadow-sm hover:bg-card"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {l === "en" ? "EN" : "বাং"}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={signOut}
+                  aria-label={t("signOut")}
+                  title={t("signOut")}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={signOut}
-                aria-label={t("signOut")}
-                title={t("signOut")}
+                className="md:hidden"
+                onClick={() => setOpen(true)}
+                aria-label={lang === "bn" ? "মেনু" : "Menu"}
+                aria-expanded={open}
+                aria-haspopup="dialog"
               >
-                <LogOut className="h-4 w-4" />
+                <Menu className="h-5 w-5" />
               </Button>
             </div>
           </header>
-          <main className="app-mobile-content min-w-0 flex-1 overflow-x-clip p-3 sm:p-6 lg:p-8">
+          <main className="app-mobile-content min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-3 sm:p-6 lg:p-8">
             <div className="mx-auto w-full min-w-0 max-w-[1600px]">
               <div className="mb-5 hidden border-b pb-3 print:block">
                 <h2 className="text-xl font-bold">{business.name}</h2>

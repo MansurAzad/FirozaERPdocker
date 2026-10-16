@@ -1,11 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  queryOptions,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Share2, Trash2, Plus, MessageCircle, Send, Facebook, Copy } from "lucide-react";
@@ -57,9 +51,8 @@ export const Route = createFileRoute("/_authenticated/app/daily-reports")({
     ],
   }),
   loader: ({ context }) => {
-    // Start today's summary in parallel; only recipients block the first paint.
+    void context.queryClient.prefetchQuery(recipientsQuery(context.business.id));
     void context.queryClient.prefetchQuery(summaryQuery(context.business.id, today()));
-    return context.queryClient.ensureQueryData(recipientsQuery(context.business.id));
   },
   component: DailyReports,
 });
@@ -82,7 +75,8 @@ const tk = (n: number) => "৳" + n.toLocaleString("en-IN", { maximumFractionDig
 function DailyReports() {
   const { business, role } = useBusiness();
   const qc = useQueryClient();
-  const { data: recipients } = useSuspenseQuery(recipientsQuery(business.id));
+  const recipientQuery = useQuery(recipientsQuery(business.id));
+  const recipients = recipientQuery.data ?? [];
   const [email, setEmail] = useState("");
   const [date, setDate] = useState(today());
   const owner = role === "owner";
@@ -148,6 +142,9 @@ function DailyReports() {
           পাঠানো হয় report@firozaenterprise.com থেকে — ডোমেইন যাচাই (DNS) সম্পন্ন হলে ইমেইল যাবে।
         </p>
         <ul className="mt-4 divide-y">
+          {recipientQuery.error && (
+            <li className="py-2 text-sm text-destructive">{friendlyError(recipientQuery.error)}</li>
+          )}
           {recipients.map((r) => (
             <li key={r.id} className="flex items-center justify-between py-2 text-sm">
               <span className="break-all">{r.email}</span>
@@ -163,8 +160,10 @@ function DailyReports() {
               )}
             </li>
           ))}
-          {recipients.length === 0 && (
-            <li className="py-2 text-sm text-muted-foreground">No emails yet.</li>
+          {recipients.length === 0 && !recipientQuery.error && (
+            <li className="py-2 text-sm text-muted-foreground">
+              {recipientQuery.isPending ? "Loading email recipients…" : "No emails yet."}
+            </li>
           )}
         </ul>
         {owner ? (
@@ -219,6 +218,7 @@ function DailyReports() {
       </div>
 
       {summary.error && <p className="text-sm text-destructive">{friendlyError(summary.error)}</p>}
+      {summary.isPending && <p className="text-sm text-muted-foreground">Loading report…</p>}
       {parts && (
         <div className="grid gap-6 lg:grid-cols-2">
           <SummaryCard
