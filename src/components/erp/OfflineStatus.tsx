@@ -55,11 +55,12 @@ export function OfflineStatus() {
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80">
         <p className="text-sm font-semibold">
-          {online ? "Uploading saved entries" : "অফলাইন — এন্ট্রি এই ডিভাইসে জমা হচ্ছে"}
+          {online ? "Syncing queued entries" : "অফলাইন — cached data দেখছেন"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ইন্টারনেট ফিরলে স্বয়ংক্রিয়ভাবে সার্ভারে যাবে। স্টক/IMEI মিল না হলে এন্ট্রি বাতিল হিসেবে
-          দেখাবে।
+          আগে এই ডিভাইসে খোলা পেজের তথ্য পুরোনো হতে পারে। Pending write সার্ভার গ্রহণ না করা পর্যন্ত
+          নিশ্চিত নয়; sales, purchase, stock ও money posting-এর server validation-এর জন্য internet
+          দরকার।
         </p>
         {unboundCount > 0 && (
           <div className="mt-3 rounded-md border border-destructive/40 p-2 text-xs">

@@ -91,9 +91,24 @@ export function describe(url: string, method: string) {
   return `${method === "POST" ? "add" : method === "DELETE" ? "delete" : "update"} ${table.replace(/_/g, " ")}`;
 }
 
-/** True when a request is a database write that may be queued. */
+export function isServerRpcWrite(url: string, method: string, base: string) {
+  return (
+    method !== "GET" &&
+    method !== "HEAD" &&
+    url.startsWith(base) &&
+    /\/rest\/v1\/rpc\//.test(new URL(url).pathname)
+  );
+}
+
+/** Only plain table writes can be queued without losing a server-generated RPC result. */
 export function isQueueableWrite(url: string, method: string, base: string) {
-  return method !== "GET" && method !== "HEAD" && url.startsWith(base) && url.includes("/rest/v1/");
+  return (
+    method !== "GET" &&
+    method !== "HEAD" &&
+    url.startsWith(base) &&
+    new URL(url).pathname.includes("/rest/v1/") &&
+    !isServerRpcWrite(url, method, base)
+  );
 }
 
 export function canReplayWrite(item: Pick<QueuedWrite, "userId">, userId: string | null) {
@@ -214,6 +229,15 @@ export async function installOfflineQueue() {
     const method = (
       init?.method ?? (input instanceof Request ? input.method : "GET")
     ).toUpperCase();
+    if (isServerRpcWrite(url, method, base) && !navigator.onLine) {
+      return new Response(
+        JSON.stringify({
+          code: "OFFLINE_REQUIRES_SERVER",
+          message: "This operation needs an internet connection. Nothing was posted.",
+        }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      );
+    }
     if (!isQueueableWrite(url, method, base)) return originalFetch(input, init);
     if (navigator.onLine) {
       try {
@@ -223,7 +247,7 @@ export async function installOfflineQueue() {
       }
     }
     await enqueue(url, { ...init, method });
-    return new Response("null", { status: 200, headers: { "content-type": "application/json" } });
+    return new Response("null", { status: 202, headers: { "content-type": "application/json" } });
   };
   window.addEventListener("online", () => void flushQueue());
   setInterval(() => void flushQueue(), 30_000);

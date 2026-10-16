@@ -51,7 +51,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { BusinessProvider, type Role, useBusiness } from "@/lib/business";
+import { BusinessProvider, type Business, type Role, useBusiness } from "@/lib/business";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { ROLE_LABELS } from "@/lib/format";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -66,18 +66,28 @@ import { NotificationBell } from "@/components/erp/NotificationBell";
 
 export const Route = createFileRoute("/_authenticated/app")({
   beforeLoad: async ({ context }) => {
-    const { data, error } = await supabase
-      .from("business_members")
-      .select("role, businesses(*)")
-      .eq("user_id", context.user.id)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true });
-    if (error) throw error;
-    const memberships = (data ?? []).flatMap((membership) =>
-      membership.businesses
-        ? [{ business: membership.businesses, role: membership.role as Role }]
-        : [],
-    );
+    type Membership = { business: Business; role: Role };
+    const membershipsKey = ["offline-business-memberships", context.user.id] as const;
+    let memberships = context.queryClient.getQueryData<Membership[]>(membershipsKey);
+    if (typeof navigator === "undefined" || navigator.onLine || !memberships) {
+      const { data, error } = await supabase
+        .from("business_members")
+        .select("role, businesses(*)")
+        .eq("user_id", context.user.id)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
+      if (error) {
+        if (typeof navigator === "undefined" || navigator.onLine || !memberships) throw error;
+      } else {
+        memberships = (data ?? []).flatMap((membership) =>
+          membership.businesses
+            ? [{ business: membership.businesses, role: membership.role as Role }]
+            : [],
+        );
+        context.queryClient.setQueryData(membershipsKey, memberships);
+      }
+    }
+    memberships ??= [];
     if (memberships.length === 0) throw redirect({ to: "/onboarding" });
     const preferredId =
       typeof window === "undefined"

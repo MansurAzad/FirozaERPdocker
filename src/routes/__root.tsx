@@ -15,6 +15,11 @@ import { BrandingProvider } from "@/lib/branding-context";
 import { getSiteBranding } from "@/lib/branding.functions";
 import { WindowControls } from "@/components/erp/WindowControls";
 import { OfflineStatus } from "@/components/erp/OfflineStatus";
+import {
+  clearOfflineQueryCache,
+  purgeLegacyOfflineQueryCache,
+  restoreOfflineQueryCache,
+} from "@/lib/offline-query-cache";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -80,12 +85,25 @@ function ErrorComponent({ error, reset }: import("@tanstack/react-router").Error
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData({
+  loader: async ({ context }) => {
+    if (typeof window !== "undefined") {
+      const { data, error } = await supabase.auth.getSession();
+      if (data.session && !navigator.onLine)
+        await restoreOfflineQueryCache(context.queryClient, data.session.user.id);
+      else if (error) throw error;
+      if (!navigator.onLine) {
+        const cached = context.queryClient.getQueryData<
+          Awaited<ReturnType<typeof getSiteBranding>>
+        >(["site-branding"]);
+        if (cached) return cached;
+      }
+    }
+    return context.queryClient.ensureQueryData({
       queryKey: ["site-branding"],
       queryFn: () => getSiteBranding(),
       staleTime: 30_000,
-    }),
+    });
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -138,35 +156,30 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
-  // Keep the last loaded data on this device so pages open without internet.
   useEffect(() => {
-    let stop: (() => void) | undefined;
-    void (async () => {
-      const [{ persistQueryClient }, { createAsyncStoragePersister }, idb] = await Promise.all([
-        import("@tanstack/react-query-persist-client"),
-        import("@tanstack/query-async-storage-persister"),
-        import("idb-keyval"),
-      ]);
-      const persister = createAsyncStoragePersister({
-        storage: {
-          getItem: (k) => idb.get(k),
-          setItem: (k, v) => idb.set(k, v),
-          removeItem: (k) => idb.del(k),
-        },
-        key: "firoza.query-cache",
-        throttleTime: 2000,
-      });
-      [stop] = persistQueryClient({ queryClient, persister, maxAge: 30 * 86400_000, buster: "v1" });
-    })();
-    return () => stop?.();
-  }, [queryClient]);
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    void purgeLegacyOfflineQueryCache().catch((error: unknown) => {
+      console.error("[Offline cache] Failed to remove the old unscoped cache:", error);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        void clearOfflineQueryCache(queryClient).catch((error: unknown) => {
+          console.error("[Offline cache] Failed to clear local data after sign-out:", error);
+        });
+      } else if (
+        session &&
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
+      ) {
+        void restoreOfflineQueryCache(queryClient, session.user.id).catch((error: unknown) => {
+          console.error("[Offline cache] Failed to restore local data:", error);
+        });
+      }
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      data.subscription.unsubscribe();
+    };
   }, [router, queryClient]);
 
   return (

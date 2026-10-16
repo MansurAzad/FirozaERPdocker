@@ -21,5 +21,9 @@ export async function registerServiceWorker() {
     );
     return;
   }
-  await navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  try {
+    await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  } catch (error) {
+    console.error("[Offline app] Service worker registration failed:", error);
+  }
 }

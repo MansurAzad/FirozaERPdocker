@@ -51,7 +51,7 @@ type Row = {
   join_date?: string | null;
   [key: string]: EntityValue;
 };
-type EntityResult = { data: unknown; error: unknown };
+type EntityResult = { data: unknown; error: unknown; status: number };
 type EntityQuery = PromiseLike<EntityResult> & {
   select(columns: string): EntityQuery;
   eq(column: string, value: EntityValue): EntityQuery;
@@ -162,6 +162,7 @@ export function EntityManager({
   }, [data, q, searchKeys]);
 
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async (vals: Row) => {
       const clean: Row = {};
       for (const f of fields) {
@@ -176,9 +177,11 @@ export function EntityManager({
             .eq("id", editing.id)
         : await entityClient.from(table).insert({ ...clean, business_id: business.id });
       if (res.error) throw res.error;
+      return { queued: res.status === 202 };
     },
-    onSuccess: () => {
-      toast.success("Saved");
+    onSuccess: ({ queued }) => {
+      if (queued) toast.info("Saved on this device; sync pending");
+      else toast.success("Saved");
       setEditing(null);
       qc.invalidateQueries();
     },
@@ -186,16 +189,19 @@ export function EntityManager({
   });
 
   const del = useMutation({
+    networkMode: "always",
     mutationFn: async (id: string) => {
-      const { error } = await entityClient
+      const { error, status } = await entityClient
         .from(table)
         .delete()
         .eq("business_id", business.id)
         .eq("id", id);
       if (error) throw error;
+      return { queued: status === 202 };
     },
-    onSuccess: () => {
-      toast.success("Deleted");
+    onSuccess: ({ queued }) => {
+      if (queued) toast.info("Delete queued on this device; sync pending");
+      else toast.success("Deleted");
       qc.invalidateQueries();
     },
     onError: (e) => toast.error(friendlyError(e)),

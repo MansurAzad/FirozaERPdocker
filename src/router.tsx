@@ -8,7 +8,7 @@ export const getRouter = () => {
     defaultOptions: {
       queries: {
         gcTime: 30 * 86400_000,
-        networkMode: "offlineFirst",
+        networkMode: "online",
         staleTime: 20_000,
         refetchOnWindowFocus: true,
       },

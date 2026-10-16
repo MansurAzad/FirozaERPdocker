@@ -169,6 +169,7 @@ function NewPurchase() {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async () => {
       if (!head.supplier_id) throw new Error("Select a supplier.");
       if (!head.branch_id) throw new Error("Select a branch.");

@@ -327,6 +327,7 @@ function NewSale() {
   void profit;
 
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async (override: boolean) => {
       if (!lines.length) throw new Error("Add at least one product.");
       for (const l of lines) {

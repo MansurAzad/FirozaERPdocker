@@ -1,8 +1,31 @@
 # Windows desktop app
 
-The Tauri desktop app opens the hosted ERP at `https://mobilederp.lovable.app`.
+The Tauri desktop app opens the hosted ERP at `https://firozaenterprise.vercel.app`.
 It uses the existing authenticated server and database rather than bundling a
 second copy of the SSR application.
+
+## Offline behavior and limits
+
+The app persists successfully loaded TanStack Query data in IndexedDB for the
+currently signed-in account. The cache expires after 24 hours, is cleared when
+the user signs out or changes account, and is restored before authenticated
+routes load. Previously opened pages may be available offline, but data can be
+stale and pages/data not loaded on that device are not available.
+
+The service worker caches visited pages and their assets at runtime. Open the
+pages needed for an offline session at least once while connected. A valid,
+unexpired sign-in session and cached business membership are required to reopen
+the authenticated app offline.
+
+Offline mode is not a second local ERP database. Server functions and RPCs that
+post sales, purchases, expenses, stock, balances, or other multi-step operations
+still require a connection; they are not safely replayable because they may
+return server-generated IDs and must validate current stock, IMEI, permissions,
+and balances atomically. The IndexedDB write queue is limited to plain table
+writes. A queued item is pending, not yet committed; the server may reject it
+when synchronization resumes. Review the Sync History before retrying a failed
+write. Use the device's protected OS account because cached ERP data is stored
+locally by the browser/WebView.
 
 ## Download a Windows installer
 

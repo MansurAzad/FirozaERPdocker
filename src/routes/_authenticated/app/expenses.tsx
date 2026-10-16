@@ -116,6 +116,7 @@ function ExpensesPage() {
   const total = byCat.reduce((s, [, v]) => s + v, 0);
 
   const save = useMutation({
+    networkMode: "always",
     mutationFn: async () => {
       const args = {
         _biz: business.id,
@@ -139,6 +140,7 @@ function ExpensesPage() {
     onError: (e) => toast.error(friendlyError(e)),
   });
   const addCat = useMutation({
+    networkMode: "always",
     mutationFn: async () => {
       const { error } = await supabase.rpc("add_expense_category", {
         _biz: business.id,
@@ -156,6 +158,7 @@ function ExpensesPage() {
   });
 
   const cancel = useMutation({
+    networkMode: "always",
     mutationFn: async () => {
       const { error } = await supabase.rpc("reverse_expense", {
         _biz: business.id,
@@ -173,6 +176,7 @@ function ExpensesPage() {
     onError: (e) => toast.error(friendlyError(e)),
   });
   const catAct = useMutation({
+    networkMode: "always",
     mutationFn: async ({ id, del }: { id: string; del?: boolean }) => {
       const { error } = del
         ? await supabase.rpc("delete_expense_category", { _biz: business.id, _id: id })
