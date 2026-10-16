@@ -1,0 +1,17 @@
+[package]
+name = "firoza-erp"
+version = "1.0.0"
+description = "Firoza ERP desktop application"
+authors = ["Firoza Enterprise"]
+edition = "2021"
+
+[lib]
+name = "firoza_erp_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-updater = "2"

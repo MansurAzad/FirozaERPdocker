@@ -18,6 +18,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+/src-tauri/updater.key
+/src-tauri/updater.key.pub
 
 # Wrangler / Cloudflare
 .wrangler/
