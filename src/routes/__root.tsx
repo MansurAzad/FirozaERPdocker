@@ -80,14 +80,22 @@ function ErrorComponent({ error, reset }: import("@tanstack/react-router").Error
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: ({ context }) => context.queryClient.ensureQueryData({ queryKey: ["site-branding"], queryFn: () => getSiteBranding(), staleTime: 30_000 }),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData({
+      queryKey: ["site-branding"],
+      queryFn: () => getSiteBranding(),
+      staleTime: 30_000,
+    }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#173c3a" },
       { title: "FIROZA ENTERPRISE" },
-      { name: "description", content: "Retail & wholesale ERP for mobile phone businesses in Bangladesh." },
+      {
+        name: "description",
+        content: "Retail & wholesale ERP for mobile phone businesses in Bangladesh.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -140,7 +148,11 @@ function RootComponent() {
         import("idb-keyval"),
       ]);
       const persister = createAsyncStoragePersister({
-        storage: { getItem: (k) => idb.get(k), setItem: (k, v) => idb.set(k, v), removeItem: (k) => idb.del(k) },
+        storage: {
+          getItem: (k) => idb.get(k),
+          setItem: (k, v) => idb.set(k, v),
+          removeItem: (k) => idb.del(k),
+        },
         key: "firoza.query-cache",
         throttleTime: 2000,
       });
@@ -162,10 +174,10 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <I18nProvider>
         <BrandingProvider>
-        <Outlet />
-        <Toaster richColors position="top-right" />
-        <WindowControls />
-        <OfflineStatus />
+          <Outlet />
+          <Toaster richColors position="top-right" />
+          <WindowControls />
+          <OfflineStatus />
         </BrandingProvider>
       </I18nProvider>
     </QueryClientProvider>

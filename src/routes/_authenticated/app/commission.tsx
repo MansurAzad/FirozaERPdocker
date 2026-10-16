@@ -276,7 +276,11 @@ function Commission() {
             <Stat label="Net sales" value={totals.revenue} note={`${totals.devices} phones`} />
             <Stat label="Commission accrued" value={totals.accrued} />
             <Stat label="Paid" value={totals.paid} tone="pos" />
-            <Stat label="Pending" value={totals.pending} tone={totals.pending > 0 ? "neg" : undefined} />
+            <Stat
+              label="Pending"
+              value={totals.pending}
+              tone={totals.pending > 0 ? "neg" : undefined}
+            />
           </div>
         </>
       )}
@@ -334,7 +338,11 @@ function Commission() {
               key: "user_id",
               label: "Linked member",
               render: (r) =>
-                r.user_id ? memberName(r.user_id) : <span className="text-muted-foreground">Not linked</span>,
+                r.user_id ? (
+                  memberName(r.user_id)
+                ) : (
+                  <span className="text-muted-foreground">Not linked</span>
+                ),
             },
             {
               key: "status",
@@ -350,7 +358,9 @@ function Commission() {
 
       {tab === "rules" && (
         <div className="rounded-lg border bg-card">
-          {lines.error && <p className="p-4 text-sm text-destructive">{friendlyError(lines.error)}</p>}
+          {lines.error && (
+            <p className="p-4 text-sm text-destructive">{friendlyError(lines.error)}</p>
+          )}
           {canEdit && (
             <div className="border-b p-3">
               <Button
@@ -358,7 +368,9 @@ function Commission() {
                 disabled={accrue.isPending}
                 onClick={() =>
                   accrue.mutate(
-                    rows.filter((r) => r.s.user_id && r.s.status === "active" && r.rule).map((r) => r.s.id),
+                    rows
+                      .filter((r) => r.s.user_id && r.s.status === "active" && r.rule)
+                      .map((r) => r.s.id),
                   )
                 }
               >
@@ -383,7 +395,10 @@ function Commission() {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-8 text-center text-sm text-muted-foreground">
+                    <TableCell
+                      colSpan={8}
+                      className="p-8 text-center text-sm text-muted-foreground"
+                    >
                       No salesmen yet. Add one from the Salesmen tab.
                     </TableCell>
                   </TableRow>
@@ -454,7 +469,9 @@ function Commission() {
                             </button>
                           )}
                         </TableCell>
-                        <TableCell className="num text-right font-semibold">{bdt(r.accrued)}</TableCell>
+                        <TableCell className="num text-right font-semibold">
+                          {bdt(r.accrued)}
+                        </TableCell>
                         <TableCell className="num text-right">{bdt(r.pending)}</TableCell>
                         <TableCell className="text-right">
                           {canEdit && r.s.user_id && r.rule && (
@@ -513,7 +530,9 @@ function Commission() {
                       </TableCell>
                       <TableCell className="num text-right">{bdt(c.amount)}</TableCell>
                       <TableCell className="num text-right">{bdt(c.paid_amount)}</TableCell>
-                      <TableCell className="num text-right font-semibold">{bdt(c.pending_amount)}</TableCell>
+                      <TableCell className="num text-right font-semibold">
+                        {bdt(c.pending_amount)}
+                      </TableCell>
                       <TableCell className="text-right">
                         {canEdit && (
                           <Button
@@ -563,7 +582,9 @@ function Commission() {
                     <TableCell className="num text-right">{r.invoices}</TableCell>
                     <TableCell className="num text-right">{r.devices}</TableCell>
                     <TableCell className="num text-right">{bdt(r.revenue)}</TableCell>
-                    <TableCell className="num text-right text-muted-foreground">{bdt(r.preview)}</TableCell>
+                    <TableCell className="num text-right text-muted-foreground">
+                      {bdt(r.preview)}
+                    </TableCell>
                     <TableCell className="num text-right">{bdt(r.accrued)}</TableCell>
                     <TableCell className="num text-right">{bdt(r.paid)}</TableCell>
                     <TableCell className="num text-right font-semibold">{bdt(r.pending)}</TableCell>
@@ -622,10 +643,16 @@ function Commission() {
               </select>
             </F>
             <F label="Transaction ID">
-              <Input value={pf["ref"] ?? ""} onChange={(e) => setPf({ ...pf, ref: e.target.value })} />
+              <Input
+                value={pf["ref"] ?? ""}
+                onChange={(e) => setPf({ ...pf, ref: e.target.value })}
+              />
             </F>
             <F label="Note">
-              <Input value={pf["note"] ?? ""} onChange={(e) => setPf({ ...pf, note: e.target.value })} />
+              <Input
+                value={pf["note"] ?? ""}
+                onChange={(e) => setPf({ ...pf, note: e.target.value })}
+              />
             </F>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setPay(null)}>

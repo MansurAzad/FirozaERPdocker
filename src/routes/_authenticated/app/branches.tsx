@@ -44,7 +44,13 @@ function Page() {
       table="branches"
       key={branch ?? "all"}
       initialSearch={branch ?? ""}
-      rowActions={(r) => <Button asChild size="sm" variant="ghost"><Link to="/app/brand-shops" search={{ branch: r.id }}>Accounts</Link></Button>}
+      rowActions={(r) => (
+        <Button asChild size="sm" variant="ghost">
+          <Link to="/app/brand-shops" search={{ branch: r.id }}>
+            Accounts
+          </Link>
+        </Button>
+      )}
       title={t("branches")}
       sub="Head office, shops and warehouses."
       orderBy="name"

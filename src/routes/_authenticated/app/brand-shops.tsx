@@ -62,7 +62,9 @@ function BrandShops() {
   const canSetup = useCan("branches");
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string>(search.branch ?? "");
-  useEffect(() => { setSelectedId(search.branch ?? ""); }, [search.branch]);
+  useEffect(() => {
+    setSelectedId(search.branch ?? "");
+  }, [search.branch]);
   const [newName, setNewName] = useState("");
   const [newKind, setNewKind] = useState<"branch" | "warehouse">("branch");
   const [from, setFrom] = useState(monthStart());
@@ -92,16 +94,14 @@ function BrandShops() {
         (name) => !existing.some((b) => b.name.toLowerCase() === name.toLowerCase()),
       );
       if (!missing.length) return;
-      const { error } = await supabase
-        .from("branches")
-        .insert(
-          missing.map((name) => ({
-            business_id: business.id,
-            name,
-            kind: "branch" as const,
-            status: "active" as const,
-          })),
-        );
+      const { error } = await supabase.from("branches").insert(
+        missing.map((name) => ({
+          business_id: business.id,
+          name,
+          kind: "branch" as const,
+          status: "active" as const,
+        })),
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -251,7 +251,14 @@ function BrandShops() {
           }}
         >
           <F className="min-w-0" label="নতুন শপ / স্টক হাউজের নাম · New shop name">
-            <Input aria-label="New shop name" className="min-w-0 w-full" value={newName} maxLength={60} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Samsung, Realme, Agrabad shop" />
+            <Input
+              aria-label="New shop name"
+              className="min-w-0 w-full"
+              value={newName}
+              maxLength={60}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Samsung, Realme, Agrabad shop"
+            />
           </F>
           <F label="Type">
             <select
@@ -269,7 +276,13 @@ function BrandShops() {
             {addShop.isPending ? "Opening…" : "Open shop"}
           </Button>
           {shopList.length < BRAND_SHOPS.length && (
-            <Button className="h-auto min-h-9 whitespace-normal" type="button" variant="outline" onClick={() => setup.mutate()} disabled={setup.isPending}>
+            <Button
+              className="h-auto min-h-9 whitespace-normal"
+              type="button"
+              variant="outline"
+              onClick={() => setup.mutate()}
+              disabled={setup.isPending}
+            >
               Add the 6 default brand shops
             </Button>
           )}
@@ -377,7 +390,9 @@ function BrandShops() {
                 {metrics.map(([label, value]) => (
                   <div key={label} className="min-w-0 bg-card p-4 sm:p-5">
                     <div className="text-xs text-muted-foreground">{label}</div>
-                    <div className="num mt-2 break-words text-xl font-semibold sm:text-2xl">{bdt(value)}</div>
+                    <div className="num mt-2 break-words text-xl font-semibold sm:text-2xl">
+                      {bdt(value)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -462,7 +477,9 @@ function BrandShops() {
               )}
               <div className="flex flex-wrap gap-2 print:hidden">
                 <Button asChild variant="outline">
-                  <Link to="/app/branches" search={{ branch: branch.id }}>Edit shop details</Link>
+                  <Link to="/app/branches" search={{ branch: branch.id }}>
+                    Edit shop details
+                  </Link>
                 </Button>
                 <Button asChild variant="outline">
                   <Link to="/app/ledger">Party ledger</Link>

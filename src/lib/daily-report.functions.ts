@@ -6,7 +6,9 @@ import { sendDailyReports } from "./daily-report.server";
 export const sendDailyReportNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ businessId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(d),
+    z
+      .object({ businessId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { data: ok } = await context.supabase.rpc("has_biz_role", {

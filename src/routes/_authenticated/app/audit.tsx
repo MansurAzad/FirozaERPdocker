@@ -36,9 +36,14 @@ export const Route = createFileRoute("/_authenticated/app/audit")({
   component: AuditPage,
 });
 
-function summary(r: { new_value: any; old_value: any }) {
-  const v = r.new_value ?? r.old_value ?? {};
-  return v.name ?? v.model ?? v.sku ?? "";
+function summary(r: { new_value: unknown; old_value: unknown }) {
+  const value = r.new_value ?? r.old_value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const details = value as Record<string, unknown>;
+  const summaryValue = details["name"] ?? details["model"] ?? details["sku"];
+  return typeof summaryValue === "string" || typeof summaryValue === "number"
+    ? String(summaryValue)
+    : "";
 }
 
 function AuditPage() {

@@ -25,6 +25,7 @@ export function friendlyError(e: unknown): string {
   }
   if (msg.includes("row-level security")) return "You don't have permission to do this.";
   if (msg.includes("violates foreign key")) return "This record is in use and can't be removed.";
-  if (msg.includes("check constraint") && msg.includes("mobile")) return "Enter a valid Bangladesh mobile number (01XXXXXXXXX).";
+  if (msg.includes("check constraint") && msg.includes("mobile"))
+    return "Enter a valid Bangladesh mobile number (01XXXXXXXXX).";
   return msg;
 }

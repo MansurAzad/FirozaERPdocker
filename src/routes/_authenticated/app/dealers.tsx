@@ -34,8 +34,7 @@ export const Route = createFileRoute("/_authenticated/app/dealers")({
       { title: `Dealers — ${matchedCompany(matches)}` },
       {
         title: `Dealer & Sub-dealer Management — ${matchedCompany(matches)}`,
-        description:
-          "Manage dealer and sub-dealer credit limits, outstanding dues and payments.",
+        description: "Manage dealer and sub-dealer credit limits, outstanding dues and payments.",
       },
       {
         property: "og:description",
@@ -98,6 +97,7 @@ function Dealers() {
       return data;
     },
   });
+  const creditRows = credits.data;
 
   const dealerIds = useMemo(
     () => (balances.data ?? []).map((b) => b.customer_id).filter((x): x is string => !!x),
@@ -121,10 +121,10 @@ function Dealers() {
   });
 
   const creditByCustomer = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof credits.data>[number]>();
-    for (const c of credits.data ?? []) m.set(c.customer_id, c);
+    const m = new Map<string, NonNullable<typeof creditRows>[number]>();
+    for (const c of creditRows ?? []) m.set(c.customer_id, c);
     return m;
-  }, [credits.data]);
+  }, [creditRows]);
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -142,7 +142,9 @@ function Dealers() {
         };
       })
       .filter((r) =>
-        !s ? true : [r.name, r.business_name, r.mobile].some((x) => (x ?? "").toLowerCase().includes(s)),
+        !s
+          ? true
+          : [r.name, r.business_name, r.mobile].some((x) => (x ?? "").toLowerCase().includes(s)),
       );
   }, [balances.data, creditByCustomer, q]);
 
@@ -218,10 +220,18 @@ function Dealers() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={tab === "dealers" ? "default" : "outline"} onClick={() => setTab("dealers")}>
+        <Button
+          size="sm"
+          variant={tab === "dealers" ? "default" : "outline"}
+          onClick={() => setTab("dealers")}
+        >
           Dealers
         </Button>
-        <Button size="sm" variant={tab === "payments" ? "default" : "outline"} onClick={() => setTab("payments")}>
+        <Button
+          size="sm"
+          variant={tab === "payments" ? "default" : "outline"}
+          onClick={() => setTab("payments")}
+        >
           Payment history
         </Button>
       </div>
@@ -240,7 +250,8 @@ function Dealers() {
             <p className="p-6 text-sm text-destructive">{friendlyError(balances.error)}</p>
           ) : rows.length === 0 ? (
             <p className="p-10 text-center text-sm text-muted-foreground">
-              No dealers yet. Add a customer with type “Wholesale Dealer” or “Sub Dealer” from Customers.
+              No dealers yet. Add a customer with type “Wholesale Dealer” or “Sub Dealer” from
+              Customers.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -273,7 +284,9 @@ function Dealers() {
                       </TableCell>
                       <TableCell className="num text-right">{bdt(r.credit_limit)}</TableCell>
                       <TableCell
-                        className={"num text-right font-semibold " + (r.over ? "text-destructive" : "")}
+                        className={
+                          "num text-right font-semibold " + (r.over ? "text-destructive" : "")
+                        }
                       >
                         {bdt(r.current_due)}
                       </TableCell>
@@ -293,7 +306,10 @@ function Dealers() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-right">
                         <Button asChild size="sm" variant="ghost">
-                          <Link to="/app/ledger" search={{ kind: "customer", party: String(r.customer_id) }}>
+                          <Link
+                            to="/app/ledger"
+                            search={{ kind: "customer", party: String(r.customer_id) }}
+                          >
                             Ledger
                           </Link>
                         </Button>
@@ -344,7 +360,9 @@ function Dealers() {
           {payments.error ? (
             <p className="p-6 text-sm text-destructive">{friendlyError(payments.error)}</p>
           ) : !payments.data?.length ? (
-            <p className="p-10 text-center text-sm text-muted-foreground">No dealer payments yet.</p>
+            <p className="p-10 text-center text-sm text-muted-foreground">
+              No dealer payments yet.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -363,12 +381,16 @@ function Dealers() {
                     <TableRow key={p.id}>
                       <TableCell className="num">{p.paid_on}</TableCell>
                       <TableCell>{nameOf(p.customer_id)}</TableCell>
-                      <TableCell className="num text-right font-semibold">{bdt(p.amount)}</TableCell>
+                      <TableCell className="num text-right font-semibold">
+                        {bdt(p.amount)}
+                      </TableCell>
                       <TableCell>{methodLabel(p.method)}</TableCell>
                       <TableCell className="num text-sm text-muted-foreground">
                         {p.txn_ref ?? "—"}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.notes ?? "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.notes ?? "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -486,10 +508,16 @@ function Dealers() {
               />
             </F>
             <F label="Transaction ID">
-              <Input value={pf["ref"] ?? ""} onChange={(e) => setPf({ ...pf, ref: e.target.value })} />
+              <Input
+                value={pf["ref"] ?? ""}
+                onChange={(e) => setPf({ ...pf, ref: e.target.value })}
+              />
             </F>
             <F label="Note">
-              <Input value={pf["note"] ?? ""} onChange={(e) => setPf({ ...pf, note: e.target.value })} />
+              <Input
+                value={pf["note"] ?? ""}
+                onChange={(e) => setPf({ ...pf, note: e.target.value })}
+              />
             </F>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setPay(null)}>

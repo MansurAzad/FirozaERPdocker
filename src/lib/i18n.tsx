@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Lang = "en" | "bn";
 export type TKey = keyof typeof dict;
@@ -42,6 +42,8 @@ export const dict = {
   bank: { en: "Banking", bn: "ব্যাংক" },
   expenses: { en: "Expenses", bn: "খরচ" },
   accounting: { en: "Accounting", bn: "হিসাব" },
+  tagline: { en: "Business management and accounting", bn: "ব্যবসা ব্যবস্থাপনা ও হিসাব" },
+  loadDemo: { en: "Load demo data", bn: "ডেমো ডেটা লোড করুন" },
   reports: { en: "Reports", bn: "রিপোর্ট" },
   comingSoon: { en: "Next phase", bn: "পরবর্তী ধাপ" },
   quotation: { en: "Quotation", bn: "কোটেশন" },
@@ -74,10 +76,19 @@ export const dict = {
   back: { en: "Back", bn: "পেছনে" },
   edit: { en: "Edit", bn: "সম্পাদনা" },
   add: { en: "Add", bn: "যোগ করুন" },
+  delete: { en: "Delete", bn: "মুছুন" },
+  empty: { en: "No records found", bn: "কোনো রেকর্ড পাওয়া যায়নি" },
   remove: { en: "Remove", bn: "সরান" },
   view: { en: "View", bn: "দেখুন" },
   total: { en: "Total", bn: "মোট" },
   due: { en: "Due", bn: "বাকি" },
+  customerDue: { en: "Customer due", bn: "গ্রাহকের বাকি" },
+  supplierDue: { en: "Supplier due", bn: "সরবরাহকারীর বাকি" },
+  stockValue: { en: "Stock value", bn: "স্টকের মূল্য" },
+  todayPurchase: { en: "Today's purchases", bn: "আজকের ক্রয়" },
+  todaySales: { en: "Today's sales", bn: "আজকের বিক্রি" },
+  cashBalance: { en: "Cash balance", bn: "নগদ ব্যালেন্স" },
+  bankBalance: { en: "Bank balance", bn: "ব্যাংক ব্যালেন্স" },
   paid: { en: "Paid", bn: "পরিশোধিত" },
   date: { en: "Date", bn: "তারিখ" },
   amount: { en: "Amount", bn: "পরিমাণ" },
@@ -91,7 +102,15 @@ export const dict = {
   ok: { en: "OK", bn: "ঠিক আছে" },
 } as const;
 
-export function useI18n() {
+type I18nValue = {
+  t: (key: TKey) => string;
+  lang: Lang;
+  setLang: (lang: Lang) => void;
+};
+
+const I18nContext = createContext<I18nValue | null>(null);
+
+export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("bn");
   useEffect(() => {
     const l = localStorage.getItem("derp.lang") as Lang | null;
@@ -106,5 +125,11 @@ export function useI18n() {
     localStorage.setItem("derp.lang", l);
   };
   const t = (k: TKey) => dict[k]?.[lang] ?? dict[k]?.en ?? k;
-  return { t, lang, setLang: set };
+  return <I18nContext.Provider value={{ t, lang, setLang: set }}>{children}</I18nContext.Provider>;
+}
+
+export function useI18n() {
+  const context = useContext(I18nContext);
+  if (!context) throw new Error("useI18n must be used within I18nProvider");
+  return context;
 }

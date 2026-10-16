@@ -127,9 +127,13 @@ function Page() {
         {
           key: "type",
           label: "Type",
-          render: (r) => <Badge variant="secondary">{label(TYPES, r.type)}</Badge>,
+          render: (r) => <Badge variant="secondary">{label(TYPES, r.type ?? "")}</Badge>,
         },
-        { key: "price_level", label: "Price level", render: (r) => label(LEVELS, r.price_level) },
+        {
+          key: "price_level",
+          label: "Price level",
+          render: (r) => label(LEVELS, r.price_level ?? ""),
+        },
         {
           key: "credit_limit",
           label: "Credit limit",

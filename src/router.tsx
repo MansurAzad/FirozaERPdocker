@@ -4,7 +4,16 @@ import { routeTree } from "./routeTree.gen";
 import { PageError, PagePending } from "./components/erp/RouteStates";
 
 export const getRouter = () => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 30 * 86400_000, networkMode: "offlineFirst", staleTime: 20_000, refetchOnWindowFocus: true } } });
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        gcTime: 30 * 86400_000,
+        networkMode: "offlineFirst",
+        staleTime: 20_000,
+        refetchOnWindowFocus: true,
+      },
+    },
+  });
 
   const router = createRouter({
     routeTree,

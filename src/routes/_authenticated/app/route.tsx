@@ -1,4 +1,11 @@
-import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -44,7 +51,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { BusinessProvider, type Role } from "@/lib/business";
+import { BusinessProvider, type Role, useBusiness } from "@/lib/business";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { ROLE_LABELS } from "@/lib/format";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -63,16 +70,33 @@ export const Route = createFileRoute("/_authenticated/app")({
       .from("business_members")
       .select("role, businesses(*)")
       .eq("user_id", context.user.id)
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (error) throw error;
-    if (!data?.businesses) throw redirect({ to: "/onboarding" });
-    return { business: data.businesses, role: data.role as Role };
+    const memberships = (data ?? []).flatMap((membership) =>
+      membership.businesses
+        ? [{ business: membership.businesses, role: membership.role as Role }]
+        : [],
+    );
+    if (memberships.length === 0) throw redirect({ to: "/onboarding" });
+    const preferredId =
+      typeof window === "undefined"
+        ? null
+        : localStorage.getItem(`derp.business.${context.user.id}`);
+    const selected =
+      memberships.find((membership) => membership.business.id === preferredId) ?? memberships[0]!;
+    return { ...selected, memberships };
   },
   component: AppLayout,
 });
 
-type NavItem = { to?: string; icon: typeof LayoutDashboard; k: TKey; soon?: boolean; roles?: Role[] };
+type NavItem = {
+  to?: string;
+  icon: typeof LayoutDashboard;
+  k: TKey;
+  soon?: boolean;
+  roles?: Role[];
+};
 const EMI_ROLES_NAV: Role[] = ["owner", "manager", "purchase_officer", "salesman", "accountant"];
 const NAV: { group?: string; items: NavItem[] }[] = [
   {
@@ -179,34 +203,36 @@ function SidebarNav({ onNav }: { onNav?: () => void }) {
               {g.group}
             </div>
           )}
-          {g.items.filter((it) => hasRole(it.roles)).map((it) =>
-            it.soon ? (
-              <div
-                key={it.k}
-                className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/40"
-              >
-                <it.icon className="h-4 w-4" />
-                {t(it.k)}
-                <span className="ml-auto rounded bg-sidebar-accent px-1.5 text-[10px]">
-                  {t("comingSoon")}
-                </span>
-              </div>
-            ) : (
-              <Link
-                key={it.to ?? it.k}
-                to={it.to ?? "/app"}
-                onClick={onNav}
-                activeOptions={{ exact: it.to === "/app" }}
-                className="flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                activeProps={{
-                  className: "bg-sidebar-accent !text-sidebar-primary font-semibold shadow-sm",
-                }}
-              >
-                <it.icon className="h-4 w-4" />
-                {it.to === "/app/brand-shops" ? t("brandShops") : t(it.k)}
-              </Link>
-            ),
-          )}
+          {g.items
+            .filter((it) => hasRole(it.roles))
+            .map((it) =>
+              it.soon ? (
+                <div
+                  key={it.k}
+                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/40"
+                >
+                  <it.icon className="h-4 w-4" />
+                  {t(it.k)}
+                  <span className="ml-auto rounded bg-sidebar-accent px-1.5 text-[10px]">
+                    {t("comingSoon")}
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  key={it.to ?? it.k}
+                  to={it.to ?? "/app"}
+                  onClick={onNav}
+                  activeOptions={{ exact: it.to === "/app" }}
+                  className="flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  activeProps={{
+                    className: "bg-sidebar-accent !text-sidebar-primary font-semibold shadow-sm",
+                  }}
+                >
+                  <it.icon className="h-4 w-4" />
+                  {it.to === "/app/brand-shops" ? t("brandShops") : t(it.k)}
+                </Link>
+              ),
+            )}
         </div>
       ))}
     </nav>
@@ -214,7 +240,7 @@ function SidebarNav({ onNav }: { onNav?: () => void }) {
 }
 
 function AppLayout() {
-  const { business: initialBusiness, role, user } = Route.useRouteContext();
+  const { business: initialBusiness, role, user, memberships } = Route.useRouteContext();
   const { data: business = initialBusiness } = useQuery({
     queryKey: ["business-identity", initialBusiness.id],
     initialData: initialBusiness,
@@ -259,6 +285,12 @@ function AppLayout() {
     return () => window.removeEventListener("pointerdown", go);
   }, []);
   const qc = useQueryClient();
+  const router = useRouter();
+  async function switchBusiness(businessId: string) {
+    localStorage.setItem(`derp.business.${user.id}`, businessId);
+    qc.clear();
+    await router.invalidate();
+  }
   // Shared cloud data is refreshed while the app is visible, including other devices' edits.
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -330,6 +362,20 @@ function AppLayout() {
       <div className="break-words font-display text-lg font-bold text-sidebar-accent-foreground">
         {business.name}
       </div>
+      {memberships.length > 1 && (
+        <select
+          aria-label="Active business"
+          className="mt-3 h-8 w-full rounded-md border border-sidebar-border bg-sidebar px-2 text-xs text-sidebar-foreground"
+          value={business.id}
+          onChange={(event) => void switchBusiness(event.currentTarget.value)}
+        >
+          {memberships.map((membership) => (
+            <option key={membership.business.id} value={membership.business.id}>
+              {membership.business.name}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 

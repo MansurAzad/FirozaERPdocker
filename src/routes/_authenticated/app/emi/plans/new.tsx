@@ -26,7 +26,8 @@ function PlanNew() {
   const [fee, setFee] = useState("0");
   const [status, setStatus] = useState("active");
 
-  const can = role === "owner" || role === "manager" || role === "accountant" || role === "purchase_officer";
+  const can =
+    role === "owner" || role === "manager" || role === "accountant" || role === "purchase_officer";
 
   const save = useMutation({
     mutationFn: async () => {

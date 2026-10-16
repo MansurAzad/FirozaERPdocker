@@ -69,7 +69,9 @@ export function summaryText(company: string, title: string, date: string, rows: 
   if (rows.length > 1) {
     lines.push("");
     for (const r of rows)
-      lines.push(`• ${r.name}: বিক্রি ${tk(r.sales_total - r.returns_total)}, খরচ ${tk(r.expenses_total)}`);
+      lines.push(
+        `• ${r.name}: বিক্রি ${tk(r.sales_total - r.returns_total)}, খরচ ${tk(r.expenses_total)}`,
+      );
   }
   return lines.join("\n");
 }

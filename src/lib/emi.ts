@@ -1,7 +1,18 @@
 import type { Role } from "@/lib/business";
 
-export const EMI_ROLES: readonly Role[] = ["owner", "manager", "purchase_officer", "salesman", "accountant"] as const;
-export const EMI_PLAN_WRITE_ROLES: readonly Role[] = ["owner", "manager", "purchase_officer", "accountant"] as const;
+export const EMI_ROLES: readonly Role[] = [
+  "owner",
+  "manager",
+  "purchase_officer",
+  "salesman",
+  "accountant",
+] as const;
+export const EMI_PLAN_WRITE_ROLES: readonly Role[] = [
+  "owner",
+  "manager",
+  "purchase_officer",
+  "accountant",
+] as const;
 
 export function canUseEmi(role: Role) {
   return (EMI_ROLES as readonly string[]).includes(role);

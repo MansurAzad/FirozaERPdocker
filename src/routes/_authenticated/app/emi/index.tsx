@@ -20,6 +20,47 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type EmiPlan = {
+  id: string;
+  name: string;
+  tenure_months: number;
+  interest_rate: number;
+  downpayment_percent: number;
+  processing_fee: number;
+  status: string;
+};
+
+type EmiInstallment = {
+  emi_id: string;
+  balance?: number | null;
+};
+
+type EmiContract = {
+  id: string;
+  emi_no?: string | null;
+  total_amount?: number | null;
+  downpayment?: number | null;
+  status?: string | null;
+  sales?: {
+    customers?: {
+      name?: string | null;
+      mobile?: string | null;
+      invoice_no?: string | null;
+    } | null;
+    invoice_no?: string | null;
+  } | null;
+  branches?: {
+    name?: string | null;
+  } | null;
+};
+
+type EmiSummary = {
+  active_contracts?: number;
+  financed_total?: number;
+  collected_total?: number;
+  outstanding_total?: number;
+};
+
 export const Route = createFileRoute("/_authenticated/app/emi/")({
   head: ({ matches }) => ({
     meta: [
@@ -38,11 +79,11 @@ function EmiIndex() {
   const [tab, setTab] = useState<"plans" | "sales">("sales");
   const [q, setQ] = useState("");
 
-function instAgg(emi: any, list: any[]) {
-  const l = list.filter((x) => x.emi_id === emi.id);
-  const out = l.reduce((s, x) => s + Number(x.balance || 0), 0);
-  return { out };
-}
+  function instAgg(emi: EmiContract, list: EmiInstallment[]) {
+    const l = list.filter((x) => x.emi_id === emi.id);
+    const out = l.reduce((s, x) => s + Number(x.balance || 0), 0);
+    return { out };
+  }
 
   const plans = useQuery({
     queryKey: ["emi-plans", business.id],
@@ -53,32 +94,39 @@ function instAgg(emi: any, list: any[]) {
         .eq("business_id", business.id)
         .order("name");
       if (error) throw error;
-      return data;
+      return data as EmiPlan[];
     },
   });
 
   const contracts = useQuery({
     queryKey: ["emi-contracts", business.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sales_emi").select("*, sales(customers(name,mobile,invoice_no)), branches(name)").eq("business_id", business.id).order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("sales_emi")
+        .select("*, sales(customers(name,mobile,invoice_no)), branches(name)")
+        .eq("business_id", business.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as EmiContract[];
     },
   });
   const inst = useQuery({
     queryKey: ["emi-inst-all", business.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("emi_installments").select("*").eq("business_id", business.id);
+      const { data, error } = await supabase
+        .from("emi_installments")
+        .select("*")
+        .eq("business_id", business.id);
       if (error) throw error;
-      return data;
+      return data as EmiInstallment[];
     },
   });
   const sum = useQuery({
     queryKey: ["emi-summary", business.id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("emi_summary", { _biz: business.id });
+      const { data, error } = await supabase.rpc("emi_summary", { _biz: business.id });
       if (error) throw error;
-      return data as any;
+      return data as EmiSummary;
     },
   });
   const [branch] = useState("");
@@ -182,16 +230,26 @@ function instAgg(emi: any, list: any[]) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(contracts.data ?? []).map((c: any) => (
+                {(contracts.data ?? []).map((c: EmiContract) => (
                   <TableRow key={c.id}>
                     <TableCell className="num">{c.emi_no}</TableCell>
                     <TableCell>{c.sales?.customers?.name || "-"}</TableCell>
                     <TableCell>{c.branches?.name || "-"}</TableCell>
                     <TableCell className="num">{bdt(c.total_amount)}</TableCell>
                     <TableCell className="num">{bdt(c.downpayment)}</TableCell>
-                    <TableCell className="num">{bdt((instAgg(c, inst.data||[]))?.out || 0)}</TableCell>
-                    <TableCell><Badge>{c.status}</Badge></TableCell>
-                    <TableCell><Button size="sm" variant="outline" asChild><Link to="/app/emi/$id" params={{ id: c.id }}>Open</Link></Button></TableCell>
+                    <TableCell className="num">
+                      {bdt(instAgg(c, inst.data || [])?.out || 0)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge>{c.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/app/emi/$id" params={{ id: c.id }}>
+                          Open
+                        </Link>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -58,7 +58,7 @@ export const getPortalData = createServerFn({ method: "GET" })
 
     const { customer_id: customerId, business_id: businessId } = hit;
 
-    const [bizRes, custRes, salesRes, reqRes, acctRes, tokenRes] = await Promise.all([
+    const [bizRes, custRes, salesRes, reqRes, acctRes, tokenRes, balanceRes] = await Promise.all([
       supabaseAdmin.from("businesses").select("name").eq("id", businessId).maybeSingle(),
       supabaseAdmin
         .from("customers")
@@ -91,7 +91,16 @@ export const getPortalData = createServerFn({ method: "GET" })
         .select("id")
         .eq("token", data.token)
         .maybeSingle(),
+      supabaseAdmin
+        .from("customer_balances")
+        .select("current_due")
+        .eq("business_id", businessId)
+        .eq("customer_id", customerId)
+        .maybeSingle(),
     ]);
+
+    if (balanceRes.error || !balanceRes.data)
+      throw new Error("Could not calculate statement balance.");
 
     const sales = (salesRes.data ?? []).map((s) => ({
       invoice_no: s.invoice_no,
@@ -100,7 +109,7 @@ export const getPortalData = createServerFn({ method: "GET" })
       paid: Number(s.paid ?? 0),
       due: Number(s.due ?? 0),
     }));
-    const totalDue = sales.reduce((sum, s) => sum + s.due, 0);
+    const totalDue = Number(balanceRes.data.current_due ?? 0);
 
     // Best-effort: note that the link was opened, for the shop's own records.
     if (tokenRes.data?.id) {

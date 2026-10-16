@@ -1,14 +1,16 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
+import { expect, it } from "vitest";
 import { canReadGuardian, profileSchema, canCloseWarrantyWithoutStock } from "./safety";
-test("owner can read Guardian financial intelligence", () =>
-  assert.equal(canReadGuardian("owner"), true));
-test("salesman cannot read owner financial intelligence", () =>
-  assert.equal(canReadGuardian("salesman"), false));
-test("status-only replacement cannot close a warranty claim without stock records", () =>
-  assert.equal(canCloseWarrantyWithoutStock("replaced"), false));
-test("company profile rejects an empty company name", () =>
-  assert.equal(
+it("owner can read Guardian financial intelligence", () => {
+  expect(canReadGuardian("owner")).toBe(true);
+});
+it("salesman cannot read owner financial intelligence", () => {
+  expect(canReadGuardian("salesman")).toBe(false);
+});
+it("status-only replacement cannot close a warranty claim without stock records", () => {
+  expect(canCloseWarrantyWithoutStock("replaced")).toBe(false);
+});
+it("company profile rejects an empty company name", () => {
+  expect(
     profileSchema.safeParse({
       name: "",
       phone: "",
@@ -22,5 +24,5 @@ test("company profile rejects an empty company name", () =>
         notes: "",
       },
     }).success,
-    false,
-  ));
+  ).toBe(false);
+});

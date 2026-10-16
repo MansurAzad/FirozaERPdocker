@@ -2,14 +2,28 @@ import { describe, expect, it } from "vitest";
 import { splitSummary, totals, type BranchSummary } from "./daily-summary";
 
 const row = (kind: BranchSummary["kind"], sales: number, ret = 0, exp = 0): BranchSummary => ({
-  id: kind + sales, name: kind, kind, sales_count: 1, sales_total: sales, gross_profit: 100,
-  sales_due: 0, returns_total: ret, purchases_total: 0, expenses_total: exp, stock_units: 0, stock_value: 0,
+  id: kind + sales,
+  name: kind,
+  kind,
+  sales_count: 1,
+  sales_total: sales,
+  gross_profit: 100,
+  sales_due: 0,
+  returns_total: ret,
+  purchases_total: 0,
+  expenses_total: exp,
+  stock_units: 0,
+  stock_value: 0,
 });
 
 describe("daily summary", () => {
   it("keeps dealer house and brand shops separate", () => {
-    const s = splitSummary({ date: "2026-10-12", due_collected: 0, supplier_paid: 0,
-      branches: [row("head", 1000), row("warehouse", 50), row("branch", 700)] });
+    const s = splitSummary({
+      date: "2026-10-12",
+      due_collected: 0,
+      supplier_paid: 0,
+      branches: [row("head", 1000), row("warehouse", 50), row("branch", 700)],
+    });
     expect(s.house.map((b) => b.kind)).toEqual(["head", "warehouse"]);
     expect(s.shops.map((b) => b.kind)).toEqual(["branch"]);
   });

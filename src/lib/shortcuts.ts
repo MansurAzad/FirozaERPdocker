@@ -28,36 +28,86 @@ export function toggleFullscreen() {
   else document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
-const FOCUSABLE = "input:not([type=hidden]):not([disabled]):not([readonly]),select:not([disabled]),textarea:not([disabled]),button[role=combobox]:not([disabled])";
+const FOCUSABLE =
+  "input:not([type=hidden]):not([disabled]):not([readonly]),select:not([disabled]),textarea:not([disabled]),button[role=combobox]:not([disabled])";
 
 function isTyping(el: Element | null) {
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el as HTMLElement).isContentEditable);
+  return (
+    !!el &&
+    (el.tagName === "INPUT" ||
+      el.tagName === "TEXTAREA" ||
+      el.tagName === "SELECT" ||
+      (el as HTMLElement).isContentEditable)
+  );
 }
 
 /** Global shortcuts + Enter-to-next-field. */
-export function useAppShortcuts(h: { navigate: (to: string) => void; palette: () => void; sidebar: () => void }) {
+export function useAppShortcuts(h: {
+  navigate: (to: string) => void;
+  palette: () => void;
+  sidebar: () => void;
+}) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement;
       const k = e.key;
-      if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "k") { e.preventDefault(); h.palette(); return; }
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && k.toLowerCase() === "b") { e.preventDefault(); h.sidebar(); return; }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && k.toLowerCase() === "f") { e.preventDefault(); toggleFullscreen(); return; }
-      if (k === "F1") { e.preventDefault(); h.navigate("/app/guide"); return; }
-      const fn = SHORTCUTS.find((s) => s.to && (s.keys === k || (e.altKey && s.keys === `Alt+${k.toUpperCase()}`)));
-      if (fn && (k.startsWith("F") || e.altKey) && !e.ctrlKey) { e.preventDefault(); h.navigate(fn.to!); return; }
-      if (k === "/" && !isTyping(t)) {
-        const box = document.querySelector<HTMLInputElement>("main input[type=search], main input[placeholder*='earch'], main input[placeholder*='IMEI']");
-        if (box) { e.preventDefault(); box.focus(); box.select(); }
+      if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "k") {
+        e.preventDefault();
+        h.palette();
         return;
       }
-      if (k !== "Enter" || e.defaultPrevented || e.altKey || t.closest("[data-no-enter-nav]")) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && k.toLowerCase() === "b") {
+        e.preventDefault();
+        h.sidebar();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && k.toLowerCase() === "f") {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
+      if (k === "F1") {
+        e.preventDefault();
+        h.navigate("/app/guide");
+        return;
+      }
+      const fn = SHORTCUTS.find(
+        (s) => s.to && (s.keys === k || (e.altKey && s.keys === `Alt+${k.toUpperCase()}`)),
+      );
+      if (fn && (k.startsWith("F") || e.altKey) && !e.ctrlKey) {
+        e.preventDefault();
+        h.navigate(fn.to!);
+        return;
+      }
+      if (k === "/" && !isTyping(t)) {
+        const box = document.querySelector<HTMLInputElement>(
+          "main input[type=search], main input[placeholder*='earch'], main input[placeholder*='IMEI']",
+        );
+        if (box) {
+          e.preventDefault();
+          box.focus();
+          box.select();
+        }
+        return;
+      }
+      if (k !== "Enter" || e.defaultPrevented || e.altKey || t.closest("[data-no-enter-nav]"))
+        return;
       const form = t.closest("form");
-      if (!form || !(t.tagName === "INPUT" || t.tagName === "SELECT" || t.getAttribute("role") === "combobox")) return;
+      if (
+        !form ||
+        !(t.tagName === "INPUT" || t.tagName === "SELECT" || t.getAttribute("role") === "combobox")
+      )
+        return;
       const type = (t as HTMLInputElement).type;
       if (["submit", "button", "checkbox", "radio", "file"].includes(type)) return;
-      if (e.ctrlKey || e.metaKey) { e.preventDefault(); form.requestSubmit(); return; }
-      const fields = [...form.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        form.requestSubmit();
+        return;
+      }
+      const fields = [...form.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (x) => x.offsetParent !== null,
+      );
       if (fields.length <= 1) return; // single scan/search box: Enter submits
       const i = fields.indexOf(t);
       if (i < 0) return;
