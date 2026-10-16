@@ -331,7 +331,8 @@ function NewSale() {
     mutationFn: async (override: boolean) => {
       if (!lines.length) throw new Error("Add at least one product.");
       for (const l of lines) {
-        const s = vmap.get(l.variant_id)!;
+        const s = vmap.get(l.variant_id);
+        if (!s) throw new Error("This product is no longer in stock at the selected branch.");
         if (l.qty <= 0)
           throw new Error(`${s.product_variants?.products?.model}: select IMEIs / quantity.`);
         const min = Number(s.product_variants?.min_price ?? 0);
@@ -397,6 +398,7 @@ function NewSale() {
             ? "Sale completed from order"
             : "Sale completed",
       );
+      setLines([]);
       qc.invalidateQueries();
       navigate({ to: "/app/sales/$id", params: { id } });
     },
@@ -570,7 +572,25 @@ function NewSale() {
             ) : (
               <div className="divide-y">
                 {lines.map((l) => {
-                  const s = vmap.get(l.variant_id)!;
+                  const s = vmap.get(l.variant_id);
+                  if (!s)
+                    return (
+                      <div
+                        key={l.key}
+                        className="flex items-center justify-between gap-3 p-3 text-sm"
+                      >
+                        <span className="text-destructive">
+                          This product is no longer in stock at the selected branch.
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    );
                   const v = s.product_variants;
                   const serial = v?.products?.categories?.is_serialized;
                   const avail = (imeiPool.data ?? []).filter(

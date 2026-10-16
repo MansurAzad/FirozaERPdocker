@@ -104,7 +104,7 @@ export function ReturnDialog({
           {kind === "sale" ? "Sales Return" : "Purchase Return"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {kind === "sale" ? "Return from customer" : "Return to supplier"} · {partyLabel}

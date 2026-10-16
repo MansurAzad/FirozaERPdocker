@@ -10,8 +10,6 @@ import { useMoneyAccounts } from "@/lib/finance";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, METHODS, Stat, methodLabel, selectCls, today, type Method } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -68,6 +68,7 @@ function Dealers() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"dealers" | "payments">("dealers");
   const [credit, setCredit] = useState<{ id: string; name: string } | null>(null);
+  const [selectedDealer, setSelectedDealer] = useState<(typeof rows)[number] | null>(null);
   const [cf, setCf] = useState<Record<string, string>>({});
   const [pay, setPay] = useState<{ id: string; name: string; due: number } | null>(null);
   const [pf, setPf] = useState<Record<string, string>>({});
@@ -219,16 +220,16 @@ function Dealers() {
         <Stat label="Available credit" value={Math.max(totals.limit - totals.due, 0)} tone="pos" />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-3">
         <Button
-          size="sm"
+          className="h-14 justify-start gap-3 text-left"
           variant={tab === "dealers" ? "default" : "outline"}
           onClick={() => setTab("dealers")}
         >
-          Dealers
+          Dealers & sub-dealers
         </Button>
         <Button
-          size="sm"
+          className="h-14 justify-start gap-3 text-left"
           variant={tab === "payments" ? "default" : "outline"}
           onClick={() => setTab("payments")}
         >
@@ -260,12 +261,9 @@ function Dealers() {
                   <TableRow>
                     <TableHead>Dealer</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Credit limit</TableHead>
                     <TableHead className="text-right">Due</TableHead>
                     <TableHead className="text-right">Available</TableHead>
-                    <TableHead>Terms</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Last payment</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -282,7 +280,6 @@ function Dealers() {
                       <TableCell>
                         <Badge variant="secondary">{typeLabel(r.type)}</Badge>
                       </TableCell>
-                      <TableCell className="num text-right">{bdt(r.credit_limit)}</TableCell>
                       <TableCell
                         className={
                           "num text-right font-semibold " + (r.over ? "text-destructive" : "")
@@ -295,57 +292,19 @@ function Dealers() {
                       >
                         {bdt(r.available)}
                       </TableCell>
-                      <TableCell className="num">{r.payment_terms_days ?? 0}d</TableCell>
                       <TableCell>
                         <Badge variant={r.status === "active" ? "secondary" : "destructive"}>
                           {r.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="num text-sm text-muted-foreground">
-                        {r.last_payment ?? "—"}
-                      </TableCell>
                       <TableCell className="whitespace-nowrap text-right">
-                        <Button asChild size="sm" variant="ghost">
-                          <Link
-                            to="/app/ledger"
-                            search={{ kind: "customer", party: String(r.customer_id) }}
-                          >
-                            Ledger
-                          </Link>
-                        </Button>
-                        {canEdit && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setCf({
-                                limit: String(r.credit_limit ?? 0),
-                                terms: String(r.payment_terms_days ?? 0),
-                                status: r.status,
-                              });
-                              setCredit({ id: r.customer_id!, name: r.name! });
-                            }}
-                          >
-                            Credit
-                          </Button>
-                        )}
                         <Button
                           size="sm"
-                          disabled={!canCollect}
                           onClick={() => {
-                            setPf({
-                              date: today(),
-                              method: "cash",
-                              amount: String(r.current_due ?? 0),
-                            });
-                            setPay({
-                              id: r.customer_id!,
-                              name: r.name!,
-                              due: Number(r.current_due ?? 0),
-                            });
+                            setSelectedDealer(r);
                           }}
                         >
-                          Receive
+                          Open
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -399,6 +358,94 @@ function Dealers() {
           )}
         </div>
       )}
+
+      <Dialog open={!!selectedDealer} onOpenChange={(open) => !open && setSelectedDealer(null)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="break-words">{selectedDealer?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedDealer && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md border bg-card p-4">
+                  <p className="text-xs text-muted-foreground">Dealer type</p>
+                  <p className="mt-1 font-medium">{typeLabel(selectedDealer.type)}</p>
+                </div>
+                <div className="rounded-md border bg-card p-4">
+                  <p className="text-xs text-muted-foreground">Mobile</p>
+                  <p className="mt-1 font-medium">{selectedDealer.mobile}</p>
+                </div>
+                <Stat label="Credit limit" value={Number(selectedDealer.credit_limit ?? 0)} />
+                <Stat
+                  label="Current due"
+                  value={Number(selectedDealer.current_due ?? 0)}
+                  tone={Number(selectedDealer.current_due ?? 0) > 0 ? "neg" : undefined}
+                />
+                <Stat label="Available credit" value={Math.max(selectedDealer.available, 0)} />
+                <div className="rounded-md border bg-card p-4">
+                  <p className="text-xs text-muted-foreground">Payment terms</p>
+                  <p className="mt-1 font-medium">{selectedDealer.payment_terms_days ?? 0} days</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={selectedDealer.status === "active" ? "secondary" : "destructive"}>
+                  {selectedDealer.status}
+                </Badge>
+                {selectedDealer.last_payment && (
+                  <Badge variant="outline">Last payment: {selectedDealer.last_payment}</Badge>
+                )}
+              </div>
+              <DialogFooter className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Button asChild variant="outline">
+                  <Link
+                    to="/app/ledger"
+                    search={{ kind: "customer", party: String(selectedDealer.customer_id) }}
+                  >
+                    Ledger
+                  </Link>
+                </Button>
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCf({
+                        limit: String(selectedDealer.credit_limit ?? 0),
+                        terms: String(selectedDealer.payment_terms_days ?? 0),
+                        status: selectedDealer.status,
+                      });
+                      setCredit({
+                        id: selectedDealer.customer_id!,
+                        name: selectedDealer.name!,
+                      });
+                      setSelectedDealer(null);
+                    }}
+                  >
+                    Credit settings
+                  </Button>
+                )}
+                <Button
+                  disabled={!canCollect || Number(selectedDealer.current_due ?? 0) <= 0}
+                  onClick={() => {
+                    setPf({
+                      date: today(),
+                      method: "cash",
+                      amount: String(selectedDealer.current_due ?? 0),
+                    });
+                    setPay({
+                      id: selectedDealer.customer_id!,
+                      name: selectedDealer.name!,
+                      due: Number(selectedDealer.current_due ?? 0),
+                    });
+                    setSelectedDealer(null);
+                  }}
+                >
+                  Receive payment
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!credit} onOpenChange={(o) => !o && setCredit(null)}>
         <DialogContent>
