@@ -27,43 +27,24 @@ when synchronization resumes. Review the Sync History before retrying a failed
 write. Use the device's protected OS account because cached ERP data is stored
 locally by the browser/WebView.
 
-## Download a Windows installer
+## Automatic Windows updates
 
-Every push to `main` builds an NSIS installer. Open the repository's **Actions**
-tab, select **Windows desktop app**, open a successful run, and download the
-`firoza-erp-windows-x64` artifact. GitHub keeps this workflow artifact for 30
-days.
+Every push to `main` automatically increments the desktop patch version,
+updates both Tauri and Cargo version fields, pushes a matching `vX.Y.Z` tag,
+builds a signed NSIS installer, and publishes a GitHub release containing
+Tauri's `latest.json` updater manifest and signature. The signed desktop app
+checks that public release manifest at startup, verifies available updates
+against its configured public key, then downloads and installs them
+automatically. Users may also download the `.exe` from the latest GitHub
+release to install or update manually.
 
-## Manually install desktop updates
+The repository must keep the `TAURI_SIGNING_PRIVATE_KEY` Actions secret
+configured. If the key is encrypted, also configure
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep the private key and its backup safe:
+never commit it or put it in `.env`. The matching public key and updater
+endpoint are configured in `src-tauri/tauri.conf.json`; keep using the same
+signing key for future releases.
 
-The source repository is private, so the app cannot fetch its GitHub release
-manifest without authentication. Desktop apps therefore do not check for or
-install updates automatically. Download the `.exe` from the latest GitHub
-release and run it to update the current-user installation.
-
-Releases are signed. The public key matching the maintainer's private key is
-configured in `src-tauri/tauri.conf.json`; keep using that same key for future
-releases.
-
-Keep the private key and its backup safe. Never commit it or put it in `.env`.
-Add the existing private key contents as the GitHub Actions repository secret
-`TAURI_SIGNING_PRIVATE_KEY`; if it has a password, add that separately as
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
-
-For example, PowerShell can send the key file directly to GitHub without
-printing it:
-
-```powershell
-Get-Content -Raw "$HOME\.tauri\firoza-erp.key" |
-  gh secret set TAURI_SIGNING_PRIVATE_KEY --repo MansurAzad/firozaerp
-```
-
-Create a versioned release by updating both `version` in
-`src-tauri/tauri.conf.json` and `version` in `src-tauri/Cargo.toml` to the same
-new semantic version, then push a matching tag such as `v1.0.3`. The signed
-release publishes the `.exe`, updater signature, and `latest.json`; users
-download and install the `.exe` manually.
-
-The unsigned `main` workflow artifact is for installing/testing the current
-desktop shell. It does not publish an update and cannot replace the signed
-release channel.
+For a manually managed release, update both version fields to the same
+semantic version and push the matching `vX.Y.Z` tag. The release workflow
+publishes the signed installer and updater manifest for that tag.

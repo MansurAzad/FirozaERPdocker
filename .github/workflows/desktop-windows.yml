@@ -12,44 +12,14 @@ permissions:
   contents: write
 
 jobs:
-  build-installer:
-    if: github.ref_type != 'tag'
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build Windows installer
-        run: bun run tauri:build:ci
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: firoza-erp-windows-x64
-          path: src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: error
-          retention-days: 30
-
   publish-release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -65,7 +35,62 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify release version
+      - name: Verify signing key
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            throw "Set the TAURI_SIGNING_PRIVATE_KEY GitHub Actions secret before publishing a signed release."
+          }
+
+      - name: Bump desktop patch version and push release tag
+        id: bump
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $configPath = "src-tauri/tauri.conf.json"
+          $cargoPath = "src-tauri/Cargo.toml"
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json
+          $cargo = Get-Content $cargoPath -Raw
+          $cargoVersion = [regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+          if (-not $cargoVersion -or $cargoVersion -ne $config.version) {
+            throw "Tauri config version and Cargo.toml version must match."
+          }
+
+          $versions = @($config.version)
+          foreach ($tag in (git tag --list "v*")) {
+            if ($tag -match '^v(\d+\.\d+\.\d+)$') { $versions += $Matches[1] }
+          }
+          $latest = $versions | ForEach-Object { [version]$_ } | Sort-Object | Select-Object -Last 1
+          $nextVersion = "{0}.{1}.{2}" -f $latest.Major, $latest.Minor, ($latest.Build + 1)
+          $config.version = $nextVersion
+          [System.IO.File]::WriteAllText(
+            $configPath,
+            ($config | ConvertTo-Json -Depth 100) + "`n",
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          $cargo = [regex]::Replace(
+            $cargo,
+            '(?m)^(version\s*=\s*")[^"]+(")',
+            [System.Text.RegularExpressions.MatchEvaluator]{
+              param($match)
+              $match.Groups[1].Value + $nextVersion + $match.Groups[2].Value
+            }
+          )
+          [System.IO.File]::WriteAllText($cargoPath, $cargo, [System.Text.UTF8Encoding]::new($false))
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $configPath $cargoPath
+          git commit -m "chore: release desktop v$nextVersion"
+          git tag -a "v$nextVersion" -m "Firoza ERP v$nextVersion"
+          git push origin HEAD:main
+          git push origin "refs/tags/v$nextVersion"
+          "tag_name=v$nextVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Verify tagged release version
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -79,16 +104,16 @@ jobs:
             throw "Tag v$tagVersion does not match desktop version $appVersion"
           }
 
-      - name: Build and publish signed release
+      - name: Build and publish signed auto-update release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Firoza ERP ${{ github.ref_name }}
-          releaseBody: Download and run the signed Windows installer below to install or update Firoza ERP. Updates are installed manually.
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || steps.bump.outputs.tag_name }}
+          releaseName: Firoza ERP ${{ github.ref_type == 'tag' && github.ref_name || steps.bump.outputs.tag_name }}
+          releaseBody: Signed Windows installer and updater metadata. Installed desktop apps check for updates on startup and can install them automatically.
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
