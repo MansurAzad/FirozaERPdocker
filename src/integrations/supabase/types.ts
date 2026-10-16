@@ -5545,7 +5545,15 @@ export type Database = {
         Returns: undefined;
       };
       brand_shop_report: {
-        Args: { _biz: string; _branch: string; _from: string; _to: string };
+        Args: {
+          _biz: string;
+          _branch: string;
+          _from: string;
+          _limit: number;
+          _offset: number;
+          _section: string;
+          _to: string;
+        };
         Returns: Json;
       };
       calculate_commission_for_sale: {

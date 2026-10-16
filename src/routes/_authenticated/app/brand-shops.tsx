@@ -1,5 +1,5 @@
 import { matchedCompany } from "@/lib/branding";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +9,8 @@ import {
   Truck,
   Boxes,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Printer,
   Receipt,
@@ -21,7 +23,7 @@ import { bdt, friendlyError } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { F, today, monthStart } from "@/components/erp/ui";
-import { shopReportSchema } from "@/lib/brand-shop";
+import { shopReportPageSchema, shopReportSchema } from "@/lib/brand-shop";
 import { makePdf, makeXlsx, download, type Sheet } from "@/lib/export";
 import {
   Table,
@@ -31,6 +33,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+const REPORT_PAGE_SIZE = 50;
+const REPORT_SECTIONS = {
+  Sales: "sales",
+  Purchases: "purchases",
+  Stock: "stock",
+  Expenses: "expenses",
+  Returns: "returns",
+  Payments: "payments",
+  Report: "report",
+} as const;
+type ReportTab = keyof typeof REPORT_SECTIONS;
 
 export const Route = createFileRoute("/_authenticated/app/brand-shops")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -58,18 +72,17 @@ export const Route = createFileRoute("/_authenticated/app/brand-shops")({
 
 function BrandShops() {
   const search = Route.useSearch();
-  const { business } = useBusiness();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { business, role } = useBusiness();
   const canSetup = useCan("branches");
+  const canViewReport = ["owner", "manager", "accountant", "branch_manager"].includes(role);
   const qc = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string>(search.branch ?? "");
-  useEffect(() => {
-    setSelectedId(search.branch ?? "");
-  }, [search.branch]);
   const [newName, setNewName] = useState("");
   const [newKind, setNewKind] = useState<"branch" | "warehouse">("branch");
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
-  const [tab, setTab] = useState("Sales");
+  const [tab, setTab] = useState<ReportTab>("Sales");
+  const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState(false);
   const shops = useQuery({
     queryKey: ["brand-shop-branches", business.id],
@@ -85,8 +98,19 @@ function BrandShops() {
   });
   const shopList = shops.data?.filter((b) => b.kind === "branch") ?? [];
   const houseList = shops.data?.filter((b) => b.kind !== "branch") ?? [];
-  const branch = shops.data?.find((b) => b.id === selectedId) ?? shopList[0] ?? houseList[0];
+  const branch = shops.data?.find((b) => b.id === search.branch) ?? shopList[0] ?? houseList[0];
   const selected = branch?.name ?? "";
+  useEffect(() => {
+    if (branch && search.branch !== branch.id) {
+      void navigate({
+        search: (prev) => ({ ...prev, branch: branch.id }),
+        replace: true,
+      });
+    }
+  }, [branch, navigate, search.branch]);
+  useEffect(() => {
+    setPage(0);
+  }, [branch?.id, from, to, tab]);
   const setup = useMutation({
     mutationFn: async () => {
       const existing = shopList;
@@ -124,17 +148,25 @@ function BrandShops() {
       if (error) throw error;
       return data.id;
     },
-    onSuccess: (id) => {
+    onSuccess: async (id) => {
       setNewName("");
-      setSelectedId(id);
-      qc.invalidateQueries();
+      await qc.invalidateQueries({ queryKey: ["brand-shop-branches", business.id] });
+      void navigate({ search: (prev) => ({ ...prev, branch: id }) });
       toast.success("New shop opened with its own accounts");
     },
     onError: (e) => toast.error(friendlyError(e)),
   });
   const accounts = useQuery({
-    queryKey: ["brand-shop-accounts", business.id, branch?.id, from, to],
-    enabled: Boolean(branch) && Boolean(from) && Boolean(to) && from <= to,
+    queryKey: [
+      "brand-shop-accounts",
+      business.id,
+      branch?.id,
+      from,
+      to,
+      REPORT_SECTIONS[tab],
+      page,
+    ],
+    enabled: canViewReport && Boolean(branch) && Boolean(from) && Boolean(to) && from <= to,
     refetchInterval: 60_000,
     queryFn: async () => {
       if (!branch) throw new Error("Select a shop");
@@ -143,12 +175,26 @@ function BrandShops() {
         _branch: branch.id,
         _from: from,
         _to: to,
+        _section: REPORT_SECTIONS[tab],
+        _offset: page * REPORT_PAGE_SIZE,
+        _limit: REPORT_PAGE_SIZE,
       });
       if (error) throw error;
-      return shopReportSchema.parse(data);
+      const result = shopReportPageSchema.parse(data);
+      const report = shopReportSchema.parse({
+        metrics: result.metrics,
+        sales: tab === "Sales" ? result.rows : [],
+        purchases: tab === "Purchases" ? result.rows : [],
+        stock: tab === "Stock" ? result.rows : [],
+        expenses: tab === "Expenses" ? result.rows : [],
+        returns: tab === "Returns" ? result.rows : [],
+        payments: tab === "Payments" ? result.rows : [],
+      });
+      return { report, total: result.total };
     },
   });
-  const d = accounts.data;
+  const d = accounts.data?.report;
+  const totalRows = accounts.data?.total ?? 0;
   const metrics = [
     ["Net sales · after returns", d?.metrics["net_sales"] ?? 0],
     ["Net purchases · after returns", d?.metrics["net_purchases"] ?? 0],
@@ -168,7 +214,7 @@ function BrandShops() {
     Payments: ["Date", "Type", "Invoice", "Method", "Amount"],
     Report: ["Account", "BDT"],
   };
-  const rows: Record<string, (string | number)[][]> = {
+  const rows: Record<ReportTab, (string | number)[][]> = {
     Sales: d?.sales.map((r) => [r.sale_date, r.invoice_no, r.total, r.paid, r.due]) ?? [],
     Purchases:
       d?.purchases.map((r) => [r.purchase_date, r.invoice_no, r.total, r.paid, r.due]) ?? [],
@@ -179,10 +225,62 @@ function BrandShops() {
     Payments: d?.payments.map((r) => [r.date, r.kind, r.invoice, r.method, r.amount]) ?? [],
     Report: metrics.map(([label, value]) => [label, value]),
   };
+  async function loadAllRows(section: ReportTab, expectedTotal: number) {
+    if (!branch) throw new Error("Select a shop");
+    const allRows: unknown[] = [];
+    for (let offset = 0; offset < expectedTotal; offset += REPORT_PAGE_SIZE) {
+      const { data, error } = await supabase.rpc("brand_shop_report", {
+        _biz: business.id,
+        _branch: branch.id,
+        _from: from,
+        _to: to,
+        _section: REPORT_SECTIONS[section],
+        _offset: offset,
+        _limit: REPORT_PAGE_SIZE,
+      });
+      if (error) throw error;
+      const result = shopReportPageSchema.parse(data);
+      allRows.push(...result.rows);
+      if (result.rows.length < 1) break;
+    }
+    if (allRows.length !== expectedTotal) {
+      throw new Error("The report changed while exporting. Refresh it and try again.");
+    }
+    return shopReportSchema.parse({
+      metrics: d?.metrics ?? {},
+      sales: section === "Sales" ? allRows : [],
+      purchases: section === "Purchases" ? allRows : [],
+      stock: section === "Stock" ? allRows : [],
+      expenses: section === "Expenses" ? allRows : [],
+      returns: section === "Returns" ? allRows : [],
+      payments: section === "Payments" ? allRows : [],
+    });
+  }
   async function output(kind: "pdf" | "xlsx") {
     if (!d) return;
     setExporting(true);
     try {
+      const report = tab === "Report" ? d : await loadAllRows(tab, totalRows);
+      const exportRows: Record<ReportTab, (string | number)[][]> = {
+        Sales: report.sales.map((r) => [r.sale_date, r.invoice_no, r.total, r.paid, r.due]) ?? [],
+        Purchases:
+          report.purchases.map((r) => [r.purchase_date, r.invoice_no, r.total, r.paid, r.due]) ??
+          [],
+        Stock:
+          report.stock.map((r) => [
+            r.product,
+            r.sku,
+            r.qty,
+            r.reorder_level,
+            r.avg_cost,
+            r.value,
+          ]) ?? [],
+        Expenses:
+          report.expenses.map((r) => [r.date, r.category, r.description ?? "", r.amount]) ?? [],
+        Returns: report.returns.map((r) => [r.date, r.kind, r.number, r.total, r.refund]) ?? [],
+        Payments: report.payments.map((r) => [r.date, r.kind, r.invoice, r.method, r.amount]) ?? [],
+        Report: metrics.map(([label, value]) => [label, value]),
+      };
       const s: Sheet = {
         title: `${business.name} — ${selected} · ${tab}`,
         subtitle: [
@@ -191,7 +289,7 @@ function BrandShops() {
           ...(tab === "Report" ? ["Net figures include returns; income excludes VAT."] : []),
         ],
         head: heads[tab] ?? [],
-        rows: rows[tab] ?? [],
+        rows: exportRows[tab],
         fileName: `${selected}-${tab}-${from}-${to}`,
       };
       download(await (kind === "pdf" ? makePdf(s) : makeXlsx(s)), `${s.fileName}.${kind}`);
@@ -231,7 +329,10 @@ function BrandShops() {
                   variant={branch?.id === b.id ? "default" : "outline"}
                   title={b.name}
                   className="h-20 min-w-0 w-full flex-col gap-1 px-2 text-sm sm:text-base"
-                  onClick={() => setSelectedId(b.id)}
+                  onClick={() => {
+                    setPage(0);
+                    void navigate({ search: (prev) => ({ ...prev, branch: b.id }) });
+                  }}
                 >
                   <I className="h-5 w-5" />
                   <span className="truncate max-w-full">{b.name}</span>
@@ -346,7 +447,10 @@ function BrandShops() {
                 aria-label="From"
                 type="date"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => {
+                  setPage(0);
+                  setFrom(e.target.value);
+                }}
               />
             </F>
             <F className="min-w-0 sm:w-40" label="To">
@@ -354,7 +458,10 @@ function BrandShops() {
                 aria-label="To"
                 type="date"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(e) => {
+                  setPage(0);
+                  setTo(e.target.value);
+                }}
               />
             </F>
             <Button
@@ -380,7 +487,12 @@ function BrandShops() {
             </Button>
           </div>
           {from > to && <p className="text-destructive">From date must be before To date.</p>}
-          {accounts.error ? (
+          {!canViewReport ? (
+            <p className="text-sm text-muted-foreground">
+              Shop financial reports are available to owners, managers, accountants, and branch
+              managers.
+            </p>
+          ) : accounts.error ? (
             <p className="text-destructive">{friendlyError(accounts.error)}</p>
           ) : accounts.isPending ? (
             <p className="text-muted-foreground">Loading accounts…</p>
@@ -402,7 +514,10 @@ function BrandShops() {
                     key={t}
                     variant={tab === t ? "secondary" : "ghost"}
                     className="shrink-0"
-                    onClick={() => setTab(t)}
+                    onClick={() => {
+                      setPage(0);
+                      setTab(t as ReportTab);
+                    }}
                   >
                     {t}
                   </Button>
@@ -469,6 +584,32 @@ function BrandShops() {
                   </Table>
                 </div>
               </section>
+              {tab !== "Report" && totalRows > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+                  <p className="text-sm text-muted-foreground" aria-live="polite">
+                    Showing {page * REPORT_PAGE_SIZE + 1}–
+                    {Math.min((page + 1) * REPORT_PAGE_SIZE, totalRows)} of {totalRows}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={page === 0 || accounts.isFetching}
+                      onClick={() => setPage((current) => Math.max(0, current - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={(page + 1) * REPORT_PAGE_SIZE >= totalRows || accounts.isFetching}
+                      onClick={() => setPage((current) => current + 1)}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               {tab === "Payments" && (
                 <p className="text-sm text-muted-foreground">
                   Invoice-linked receipts and payments only. Unallocated party payments remain in

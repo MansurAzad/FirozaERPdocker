@@ -49,6 +49,7 @@
     { "idx": 44, "version": "7", "when": 1793752201000, "tag": "0044_purchase_returns", "breakpoints": true },
     { "idx": 45, "version": "7", "when": 1793838601000, "tag": "0045_service_items", "breakpoints": true },
     { "idx": 46, "version": "7", "when": 1793925001000, "tag": "0046_courier", "breakpoints": true },
-    { "idx": 47, "version": "7", "when": 1794011401000, "tag": "0047_emi_advanced", "breakpoints": true }
+    { "idx": 47, "version": "7", "when": 1794011401000, "tag": "0047_emi_advanced", "breakpoints": true },
+    { "idx": 48, "version": "7", "when": 1794011402000, "tag": "0048_brand_shop_report_pagination", "breakpoints": true }
   ]
 }

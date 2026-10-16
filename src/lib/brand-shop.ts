@@ -1,4 +1,10 @@
 import { z } from "zod";
+export const shopReportPageSchema = z.object({
+  metrics: z.record(z.number()),
+  rows: z.array(z.unknown()),
+  total: z.number().int().nonnegative(),
+});
+
 export const shopReportSchema = z.object({
   metrics: z.record(z.number()),
   sales: z.array(
