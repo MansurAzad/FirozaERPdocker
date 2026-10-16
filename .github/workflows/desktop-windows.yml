@@ -88,7 +88,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Firoza ERP ${{ github.ref_name }}
-          releaseBody: Download the Windows installer below. Installed desktop apps check this release channel for signed updates on startup.
+          releaseBody: Download and run the signed Windows installer below to install or update Firoza ERP. Updates are installed manually.
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
