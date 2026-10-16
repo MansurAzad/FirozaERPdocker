@@ -67,6 +67,8 @@ jobs:
 
       - name: Verify release version
         shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
             throw "Set the TAURI_SIGNING_PRIVATE_KEY GitHub Actions secret before publishing a signed release."
