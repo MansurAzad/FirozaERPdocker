@@ -1,6 +1,6 @@
 [package]
 name = "firoza-erp"
-version = "1.0.5"
+version = "1.0.6"
 description = "Firoza ERP desktop application"
 authors = ["Firoza Enterprise"]
 edition = "2021"
