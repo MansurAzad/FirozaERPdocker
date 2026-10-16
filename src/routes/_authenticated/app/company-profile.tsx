@@ -1,12 +1,11 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Building2, ContactRound, FileText, Save } from "lucide-react";
 import { useBusiness } from "@/lib/business";
-import { guardianQuery } from "@/lib/guardian/queries";
 import { profileSchema } from "@/lib/guardian/safety";
 import { saveGuardianProfile } from "@/lib/guardian.functions";
 import { GuardianNav } from "@/components/erp/GuardianNav";
@@ -16,6 +15,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { friendlyError } from "@/lib/format";
+import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+
+type CompanyProfileForm = ReturnType<typeof companyProfileForm>;
+type CompanyProfileRow = Pick<
+  Database["public"]["Tables"]["businesses"]["Row"],
+  "name" | "phone" | "address" | "trade_license" | "guardian_profile"
+>;
+
+function companyProfileForm(company: CompanyProfileRow) {
+  const profile =
+    typeof company.guardian_profile === "object" &&
+    company.guardian_profile !== null &&
+    !Array.isArray(company.guardian_profile)
+      ? company.guardian_profile
+      : {};
+  const text = (key: string) => (typeof profile[key] === "string" ? profile[key] : "");
+  return {
+    name: company.name,
+    phone: company.phone ?? "",
+    address: company.address ?? "",
+    trade_license: company.trade_license ?? "",
+    guardian_profile: {
+      contact_person: text("contact_person"),
+      email: text("email"),
+      website: text("website"),
+      business_hours: text("business_hours"),
+      notes: text("notes"),
+    },
+  };
+}
+
+const companyProfileKey = (businessId: string) => ["company-profile", businessId] as const;
+
 export const Route = createFileRoute("/_authenticated/app/company-profile")({
   head: ({ matches }) => ({
     meta: [
@@ -33,33 +66,43 @@ export const Route = createFileRoute("/_authenticated/app/company-profile")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(guardianQuery(context.business.id)),
   component: ProfilePage,
 });
 function ProfilePage() {
   const { business, role } = useBusiness();
-  const { data } = useSuspenseQuery(guardianQuery(business.id));
   const qc = useQueryClient();
   const router = useRouter();
   const save = useServerFn(saveGuardianProfile);
-  const [form, setForm] = useState({
-    name: data.company.name,
-    phone: data.company.phone ?? "",
-    address: data.company.address ?? "",
-    trade_license: data.company.trade_license ?? "",
-    guardian_profile: {
-      contact_person: data.company.profile["contact_person"] ?? "",
-      email: data.company.profile["email"] ?? "",
-      website: data.company.profile["website"] ?? "",
-      business_hours: data.company.profile["business_hours"] ?? "",
-      notes: data.company.profile["notes"] ?? "",
+  const [form, setForm] = useState<CompanyProfileForm>(() => companyProfileForm(business));
+  const [dirty, setDirty] = useState(false);
+  const profileQuery = useQuery({
+    queryKey: companyProfileKey(business.id),
+    initialData: () => companyProfileForm(business),
+    staleTime: 30_000,
+    refetchOnMount: "always",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("name,phone,address,trade_license,guardian_profile")
+        .eq("id", business.id)
+        .single();
+      if (error) throw error;
+      return companyProfileForm(data);
     },
   });
+  useEffect(() => {
+    if (!dirty) setForm(profileQuery.data);
+  }, [dirty, profileQuery.data]);
   const mutation = useMutation({
-    mutationFn: () =>
-      save({ data: { businessId: business.id, profile: profileSchema.parse(form) } }),
-    onSuccess: async () => {
-      await qc.invalidateQueries();
+    mutationFn: () => {
+      const profile = profileSchema.parse(form);
+      return save({ data: { businessId: business.id, profile } }).then(() => profile);
+    },
+    onSuccess: async (profile) => {
+      qc.setQueryData(companyProfileKey(business.id), profile);
+      setForm(profile);
+      setDirty(false);
+      await qc.invalidateQueries({ queryKey: ["guardian-snapshot", business.id] });
       await router.invalidate();
       toast.success("Company profile saved");
     },
@@ -70,77 +113,146 @@ function ProfilePage() {
       <GuardianNav />
       <PageHeader
         title="Settings · Company & branding"
-        sub={data.company.currency + " · " + data.company.type}
+        sub={business.currency + " · " + business.type}
       />
+      <nav aria-label="Company settings sections" className="mb-6 grid gap-3 sm:grid-cols-3">
+        {[
+          ["company-details", "Company details", Building2],
+          ["contact-details", "Contact details", ContactRound],
+          ["business-context", "Business context", FileText],
+        ].map(([id, label, Icon]) => {
+          const SectionIcon = Icon as typeof Building2;
+          return (
+            <Button
+              key={id as string}
+              asChild
+              variant="outline"
+              className="h-14 justify-start gap-3 text-left"
+            >
+              <a href={`#${id as string}`}>
+                <SectionIcon className="h-5 w-5 shrink-0" />
+                {label as string}
+              </a>
+            </Button>
+          );
+        })}
+      </nav>
+      {profileQuery.error && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          Could not refresh company settings: {friendlyError(profileQuery.error)}
+        </p>
+      )}
       <form
-        className="max-w-3xl space-y-6"
+        className="w-full max-w-3xl space-y-6"
         onSubmit={(e) => {
           e.preventDefault();
           mutation.mutate();
         }}
       >
-        <div className="grid gap-5 sm:grid-cols-2">
-          {(
-            [
-              ["name", "Company name"],
-              ["phone", "Phone"],
-              ["address", "Address"],
-              ["trade_license", "Trade license"],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key}>
-              <Label htmlFor={key}>{label}</Label>
-              <Input
-                id={key}
-                required={key === "name"}
-                maxLength={key === "address" ? 500 : 120}
-                value={form[key]}
-                disabled={role !== "owner"}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              />
-            </div>
-          ))}
-          {(
-            [
-              ["contact_person", "Contact person"],
-              ["email", "Email"],
-              ["website", "Website"],
-              ["business_hours", "Business hours"],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key}>
-              <Label htmlFor={key}>{label}</Label>
-              <Input
-                id={key}
-                type={key === "email" ? "email" : key === "website" ? "url" : "text"}
-                maxLength={300}
-                value={form.guardian_profile[key]}
-                disabled={role !== "owner"}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    guardian_profile: { ...form.guardian_profile, [key]: e.target.value },
-                  })
-                }
-              />
-            </div>
-          ))}
-        </div>
-        <div>
-          <Label htmlFor="company-notes">Business context</Label>
-          <Textarea
-            id="company-notes"
-            maxLength={2000}
-            value={form.guardian_profile.notes}
-            disabled={role !== "owner"}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                guardian_profile: { ...form.guardian_profile, notes: e.target.value },
-              })
-            }
-          />
-        </div>
+        <section id="company-details" className="scroll-mt-24 space-y-3">
+          <h2 className="text-lg font-semibold">Company details</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {(
+              [
+                ["name", "Company name"],
+                ["trade_license", "Trade license"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key}>
+                <Label htmlFor={key}>{label}</Label>
+                <Input
+                  id={key}
+                  required={key === "name"}
+                  maxLength={key === "trade_license" ? 100 : 120}
+                  value={form[key]}
+                  disabled={role !== "owner"}
+                  onChange={(e) => {
+                    setDirty(true);
+                    setForm({ ...form, [key]: e.target.value });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section id="contact-details" className="scroll-mt-24 space-y-3">
+          <h2 className="text-lg font-semibold">Contact details</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {(
+              [
+                ["phone", "Phone"],
+                ["address", "Address"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key}>
+                <Label htmlFor={key}>{label}</Label>
+                <Input
+                  id={key}
+                  maxLength={key === "address" ? 500 : 30}
+                  value={form[key]}
+                  disabled={role !== "owner"}
+                  onChange={(e) => {
+                    setDirty(true);
+                    setForm({ ...form, [key]: e.target.value });
+                  }}
+                />
+              </div>
+            ))}
+            {(
+              [
+                ["contact_person", "Contact person"],
+                ["email", "Email"],
+                ["website", "Website"],
+                ["business_hours", "Business hours"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key}>
+                <Label htmlFor={key}>{label}</Label>
+                <Input
+                  id={key}
+                  type={key === "email" ? "email" : key === "website" ? "url" : "text"}
+                  maxLength={
+                    key === "contact_person"
+                      ? 100
+                      : key === "email"
+                        ? 200
+                        : key === "website"
+                          ? 300
+                          : 200
+                  }
+                  value={form.guardian_profile[key]}
+                  disabled={role !== "owner"}
+                  onChange={(e) => {
+                    setDirty(true);
+                    setForm({
+                      ...form,
+                      guardian_profile: { ...form.guardian_profile, [key]: e.target.value },
+                    });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section id="business-context" className="scroll-mt-24 space-y-3">
+          <h2 className="text-lg font-semibold">Business context</h2>
+          <div>
+            <Label htmlFor="company-notes">Business context</Label>
+            <Textarea
+              id="company-notes"
+              maxLength={2000}
+              value={form.guardian_profile.notes}
+              disabled={role !== "owner"}
+              onChange={(e) => {
+                setDirty(true);
+                setForm({
+                  ...form,
+                  guardian_profile: { ...form.guardian_profile, notes: e.target.value },
+                });
+              }}
+            />
+          </div>
+        </section>
         <Button type="submit" disabled={role !== "owner" || mutation.isPending}>
           <Save />
           {mutation.isPending ? "Saving…" : "Save company profile"}

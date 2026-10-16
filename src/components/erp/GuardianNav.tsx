@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Activity, Building2, MessageSquare, ShieldCheck, ShieldAlert } from "lucide-react";
 export function GuardianNav() {
   return (
-    <nav aria-label="Guardian pages" className="mb-6 flex flex-wrap gap-2 border-b pb-4">
+    <nav
+      aria-label="Guardian pages"
+      className="mb-6 grid grid-cols-2 gap-2 border-b pb-4 sm:grid-cols-3 xl:grid-cols-5"
+    >
       {[
         ["/app/guardian-owner", "Owner overview", ShieldCheck],
         ["/app/guardian-chat", "Ask Guardian", MessageSquare],
@@ -13,7 +16,12 @@ export function GuardianNav() {
       ].map(([to, label, Icon]) => {
         const I = Icon as typeof ShieldCheck;
         return (
-          <Button key={to as string} asChild variant="outline" size="sm">
+          <Button
+            key={to as string}
+            asChild
+            variant="outline"
+            className="h-12 justify-start gap-2 px-3 text-left sm:h-14"
+          >
             <Link to={to as string} activeProps={{ className: "bg-secondary text-primary" }}>
               <I />
               {label as string}

@@ -391,7 +391,7 @@ function AppLayout() {
 
   return (
     <BusinessProvider value={{ business, role, userId: user.id, email: user.email ?? "" }}>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen w-full min-w-0 overflow-x-clip bg-background">
         {side ? (
           <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar shadow-xl md:flex">
             {brand}
@@ -536,8 +536,8 @@ function AppLayout() {
               </Button>
             </div>
           </header>
-          <main className="app-mobile-content min-w-0 flex-1 p-3 sm:p-6 lg:p-8">
-            <div className="mx-auto w-full max-w-[1600px]">
+          <main className="app-mobile-content min-w-0 flex-1 overflow-x-clip p-3 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full min-w-0 max-w-[1600px]">
               <div className="mb-5 hidden border-b pb-3 print:block">
                 <h2 className="text-xl font-bold">{business.name}</h2>
                 <p className="text-sm">
