@@ -455,27 +455,30 @@ function AppLayout() {
           </SheetContent>
         </Sheet>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="app-header z-20 grid h-16 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur md:px-8 print:hidden">
+          <header className="app-header relative z-20 grid h-16 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur md:px-8 print:hidden">
             <div className="flex min-w-0 items-center gap-3">
               <img
                 src={emblem}
                 alt={`${business.name} logo`}
-                className="h-9 w-9 shrink-0 object-contain md:hidden"
+                className="h-9 w-9 shrink-0 object-contain lg:hidden"
                 width={36}
                 height={36}
               />
-              <div className="hidden h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary md:grid">
+              <div className="hidden h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary lg:grid">
                 <Building2 className="h-4 w-4 text-primary" />
               </div>
-              <div className="hidden min-w-0 md:block">
+              <div className="hidden min-w-0 lg:block">
                 <p className="truncate text-sm font-semibold">{business.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {ROLE_LABELS[role]} · {user.email}
                 </p>
               </div>
             </div>
+            <div className="pointer-events-none absolute left-1/2 top-1/2 w-[calc(100%-6rem)] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold sm:text-lg md:text-xl lg:hidden">
+              FIROZA ENTERPRISE
+            </div>
             <div className="ml-auto flex items-center gap-2">
-              <div className="hidden items-center gap-2 md:flex">
+              <div className="hidden items-center gap-2 lg:flex">
                 <NotificationBell />
                 <Button
                   asChild
@@ -512,7 +515,7 @@ function AppLayout() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className="lg:hidden"
                   onClick={() => setPalette(true)}
                   aria-label="Search"
                 >
@@ -560,7 +563,7 @@ function AppLayout() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="lg:hidden"
                 onClick={() => setOpen(true)}
                 aria-label={lang === "bn" ? "মেনু" : "Menu"}
                 aria-expanded={open}
