@@ -34,13 +34,16 @@ tab, select **Windows desktop app**, open a successful run, and download the
 `firoza-erp-windows-x64` artifact. GitHub keeps this workflow artifact for 30
 days.
 
-## Enable signed automatic updates
+## Manually install desktop updates
 
-Tauri requires a signing key to create updates. The public key matching the
-maintainer's private key is already configured in
-`src-tauri/tauri.conf.json`. Use that same private key for future releases;
-generating a different one will prevent existing installs from accepting
-updates.
+The source repository is private, so the app cannot fetch its GitHub release
+manifest without authentication. Desktop apps therefore do not check for or
+install updates automatically. Download the `.exe` from the latest GitHub
+release and run it to update the current-user installation.
+
+Releases are signed. The public key matching the maintainer's private key is
+configured in `src-tauri/tauri.conf.json`; keep using that same key for future
+releases.
 
 Keep the private key and its backup safe. Never commit it or put it in `.env`.
 Add the existing private key contents as the GitHub Actions repository secret
@@ -57,10 +60,9 @@ Get-Content -Raw "$HOME\.tauri\firoza-erp.key" |
 
 Create a versioned release by updating both `version` in
 `src-tauri/tauri.conf.json` and `version` in `src-tauri/Cargo.toml` to the same
-new semantic version, then push a matching tag such as `v1.0.1`. The signed
-release publishes the `.exe`, updater signature, and `latest.json`. Existing
-desktop installations check for signed releases when they start and install a
-newer version automatically.
+new semantic version, then push a matching tag such as `v1.0.3`. The signed
+release publishes the `.exe`, updater signature, and `latest.json`; users
+download and install the `.exe` manually.
 
 The unsigned `main` workflow artifact is for installing/testing the current
 desktop shell. It does not publish an update and cannot replace the signed
