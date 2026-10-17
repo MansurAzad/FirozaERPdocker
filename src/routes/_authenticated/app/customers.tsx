@@ -74,6 +74,8 @@ function Page() {
       title={t("customers")}
       sub="Retail customers, shops and dealers with price level and credit limit."
       canWrite={useCan("customers")}
+      canCreate={useCan("customers", "create")}
+      canEdit={useCan("customers", "edit")}
       canDelete={useCan("deleteParty")}
       searchKeys={["name", "business_name", "mobile"]}
       fields={[

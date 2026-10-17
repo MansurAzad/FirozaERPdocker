@@ -7,7 +7,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
-import { canUseEmi } from "@/lib/emi";
+import { hasAccess } from "@/lib/access-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { F, selectCls } from "@/components/erp/ui";
@@ -74,11 +74,11 @@ export const Route = createFileRoute("/_authenticated/app/emi/$id")({
 });
 
 function EmiDetail() {
-  const { business, role } = useBusiness();
+  const { business, access } = useBusiness();
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const nav = useNavigate();
-  const allowed = canUseEmi(role);
+  const allowed = hasAccess(access, "emi");
 
   const emi = useQuery({
     enabled: allowed,
@@ -247,7 +247,7 @@ function EmiDetail() {
         </div>
       </section>
 
-      {e.status === "active" && (
+      {e.status === "active" && hasAccess(access, "emi", "create") && (
         <section className="rounded-lg border bg-card p-4">
           <div className="mb-2 font-semibold">Receive installment payment</div>
           <div className="grid gap-3 sm:grid-cols-4">

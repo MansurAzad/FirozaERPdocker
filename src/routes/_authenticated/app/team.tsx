@@ -1,16 +1,18 @@
 import { matchedCompany } from "@/lib/branding";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness, useCan, type Role } from "@/lib/business";
+import { hasAccess } from "@/lib/access-control";
 import { useI18n } from "@/lib/i18n";
 import { ROLE_LABELS, friendlyError } from "@/lib/format";
 import { addMemberByEmail } from "@/lib/team.functions";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -55,10 +57,10 @@ const ASSIGNABLE = Object.keys(ROLE_LABELS).filter((r) => r !== "owner") as Excl
 >[];
 
 function TeamPage() {
-  const { business, userId, role: accountRole } = useBusiness();
+  const { business, userId, access } = useBusiness();
   const { t } = useI18n();
   const isOwner = useCan("team");
-  const canNotify = accountRole === "owner" || accountRole === "manager";
+  const canNotify = hasAccess(access, "team", "create");
   const qc = useQueryClient();
   const add = useServerFn(addMemberByEmail);
   const [email, setEmail] = useState("");
@@ -66,6 +68,7 @@ function TeamPage() {
   const [notifyTo, setNotifyTo] = useState<{ user_id: string; name: string } | null>(null);
   const [nTitle, setNTitle] = useState("");
   const [nMessage, setNMessage] = useState("");
+  const [advancedAccess, setAdvancedAccess] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["members", business.id],
@@ -143,6 +146,34 @@ function TeamPage() {
         title={t("team")}
         sub="Each user gets one role. Permissions are enforced on the server."
       />
+      {isOwner && (
+        <section className="mb-6 rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-semibold">Advanced access</h2>
+              <p className="text-sm text-muted-foreground">
+                Configure custom roles and per-user page and action permissions.
+              </p>
+            </div>
+            <Switch
+              checked={advancedAccess}
+              onCheckedChange={setAdvancedAccess}
+              aria-label="Show advanced access controls"
+            />
+          </div>
+          {advancedAccess && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Members without an assigned access role or individual grants are denied by default.
+                The business owner always retains full access.
+              </p>
+              <Button asChild>
+                <Link to="/app/access-control">Manage access rules</Link>
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
       {isOwner && (
         <form
           onSubmit={(e) => {

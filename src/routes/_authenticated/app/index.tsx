@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Package, Users, Handshake, GitBranch, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
+import { hasAccess, type AccessModule } from "@/lib/access-control";
 import { useI18n } from "@/lib/i18n";
 import { bdt, friendlyError } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ async function count(
   return count ?? 0;
 }
 
-type TrendPoint = { label: string; sales: number; profit: number; purchases: number };
+type TrendPoint = { label: string; sales: number; profit: number };
 type TopProduct = { name: string; revenue: number; qty: number };
 
 const trendConfig = {
@@ -85,68 +86,83 @@ function lastDays(n: number) {
 }
 
 function Dashboard() {
-  const { business } = useBusiness();
+  const { business, access } = useBusiness();
   const { t } = useI18n();
+  const canView = (module: AccessModule) => hasAccess(access, module);
   const { data } = useQuery({
-    queryKey: ["dash", business.id],
+    queryKey: ["dash", business.id, access],
     queryFn: async () => {
-      const [products, variants, customers, suppliers, branches] = await Promise.all(
-        (["products", "product_variants", "customers", "suppliers", "branches"] as const).map((x) =>
-          count(x, business.id),
-        ),
-      );
-      const { data: credit } = await supabase
-        .from("customers")
-        .select("credit_limit, opening_balance")
-        .eq("business_id", business.id);
-      const { data: sup } = await supabase
-        .from("supplier_balances")
-        .select("current_payable")
-        .eq("business_id", business.id);
-      const { data: ma } = await supabase
-        .from("money_account_balances")
-        .select("kind, balance")
-        .eq("business_id", business.id);
-      const { data: stk } = await supabase
-        .from("stock")
-        .select("qty, avg_cost")
-        .eq("business_id", business.id);
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: tp } = await supabase
-        .from("purchases")
-        .select("total")
-        .eq("business_id", business.id)
-        .eq("purchase_date", today)
-        .eq("status", "posted");
-      const { data: ts } = await supabase
-        .from("sales")
-        .select("total,tax,cogs")
-        .eq("business_id", business.id)
-        .eq("sale_date", today)
-        .eq("status", "posted");
-      const { data: cb } = await supabase
-        .from("customer_balances")
-        .select("current_due")
-        .eq("business_id", business.id);
+      const [products, variants, customers, suppliers, branches] = await Promise.all([
+        canView("products") ? count("products", business.id) : 0,
+        canView("products") ? count("product_variants", business.id) : 0,
+        canView("customers") ? count("customers", business.id) : 0,
+        canView("suppliers") ? count("suppliers", business.id) : 0,
+        canView("branches") ? count("branches", business.id) : 0,
+      ]);
+      const [credit, sup, ma, stk, tp, ts, cb] = await Promise.all([
+        canView("customers")
+          ? supabase
+              .from("customers")
+              .select("credit_limit, opening_balance")
+              .eq("business_id", business.id)
+          : null,
+        canView("supplier_payments")
+          ? supabase
+              .from("supplier_balances")
+              .select("current_payable")
+              .eq("business_id", business.id)
+          : null,
+        canView("cash_bank")
+          ? supabase
+              .from("money_account_balances")
+              .select("kind, balance")
+              .eq("business_id", business.id)
+          : null,
+        canView("inventory")
+          ? supabase.from("stock").select("qty, avg_cost").eq("business_id", business.id)
+          : null,
+        canView("purchases")
+          ? supabase
+              .from("purchases")
+              .select("total")
+              .eq("business_id", business.id)
+              .eq("purchase_date", new Date().toISOString().slice(0, 10))
+              .eq("status", "posted")
+          : null,
+        canView("sales")
+          ? supabase
+              .from("sales")
+              .select("total,tax,cogs")
+              .eq("business_id", business.id)
+              .eq("sale_date", new Date().toISOString().slice(0, 10))
+              .eq("status", "posted")
+          : null,
+        canView("due_collection")
+          ? supabase.from("customer_balances").select("current_due").eq("business_id", business.id)
+          : null,
+      ]);
+      for (const result of [credit, sup, ma, stk, tp, ts, cb]) {
+        if (result?.error) throw result.error;
+      }
       return {
         products,
         variants,
         customers,
         suppliers,
         branches,
-        customerDue: (cb ?? []).reduce((s, r) => s + Number(r.current_due ?? 0), 0),
-        creditLimit: (credit ?? []).reduce((s, r) => s + Number(r.credit_limit), 0),
-        supplierDue: (sup ?? []).reduce((s, r) => s + Number(r.current_payable ?? 0), 0),
-        cash: (ma ?? [])
+        customerDue: (cb?.data ?? []).reduce((s, r) => s + Number(r.current_due ?? 0), 0),
+        creditLimit: (credit?.data ?? []).reduce((s, r) => s + Number(r.credit_limit), 0),
+        supplierDue: (sup?.data ?? []).reduce((s, r) => s + Number(r.current_payable ?? 0), 0),
+        cash: (ma?.data ?? [])
           .filter((m) => m.kind === "cash")
           .reduce((s, r) => s + Number(r.balance ?? 0), 0),
-        bank: (ma ?? [])
+        bank: (ma?.data ?? [])
           .filter((m) => m.kind !== "cash")
           .reduce((s, r) => s + Number(r.balance ?? 0), 0),
-        stockValue: (stk ?? []).reduce((s, r) => s + r.qty * Number(r.avg_cost), 0),
-        todayPurchase: (tp ?? []).reduce((s, r) => s + Number(r.total), 0),
-        todaySales: (ts ?? []).reduce((s, r) => s + Number(r.total), 0),
-        todayProfit: (ts ?? []).reduce(
+        stockValue: (stk?.data ?? []).reduce((s, r) => s + r.qty * Number(r.avg_cost), 0),
+        todayPurchase: (tp?.data ?? []).reduce((s, r) => s + Number(r.total), 0),
+        todaySales: (ts?.data ?? []).reduce((s, r) => s + Number(r.total), 0),
+        todayProfit: (ts?.data ?? []).reduce(
           (s, r) => s + Number(r.total) - Number(r.tax) - Number(r.cogs),
           0,
         ),
@@ -155,50 +171,35 @@ function Dashboard() {
   });
 
   const trend = useQuery({
+    enabled: canView("sales"),
     queryKey: ["dash-trend", business.id],
     queryFn: async (): Promise<TrendPoint[]> => {
       const days = lastDays(14);
       const start = days[0]?.date ?? "1970-01-01";
-      const [s, p] = await Promise.all([
-        supabase
-          .from("sales")
-          .select("sale_date,total,tax,cogs")
-          .eq("business_id", business.id)
-          .eq("status", "posted")
-          .gte("sale_date", start),
-        supabase
-          .from("purchases")
-          .select("purchase_date,total")
-          .eq("business_id", business.id)
-          .eq("status", "posted")
-          .gte("purchase_date", start),
-      ]);
-      if (s.error) throw s.error;
-      if (p.error) throw p.error;
+      const { data: sales, error } = await supabase
+        .from("sales")
+        .select("sale_date,total,tax,cogs")
+        .eq("business_id", business.id)
+        .eq("status", "posted")
+        .gte("sale_date", start);
+      if (error) throw error;
       const salesByDay = new Map<string, { sales: number; profit: number }>();
-      for (const r of s.data ?? []) {
+      for (const r of sales ?? []) {
         const cur = salesByDay.get(r.sale_date) ?? { sales: 0, profit: 0 };
         cur.sales += Number(r.total);
         cur.profit += Number(r.total) - Number(r.tax) - Number(r.cogs);
         salesByDay.set(r.sale_date, cur);
       }
-      const purchasesByDay = new Map<string, number>();
-      for (const r of p.data ?? []) {
-        purchasesByDay.set(
-          r.purchase_date,
-          (purchasesByDay.get(r.purchase_date) ?? 0) + Number(r.total),
-        );
-      }
       return days.map((d) => ({
         label: d.label,
         sales: Math.round(salesByDay.get(d.date)?.sales ?? 0),
         profit: Math.round(salesByDay.get(d.date)?.profit ?? 0),
-        purchases: Math.round(purchasesByDay.get(d.date) ?? 0),
       }));
     },
   });
 
   const top = useQuery({
+    enabled: canView("sales") && canView("products"),
     queryKey: ["dash-top", business.id],
     queryFn: async (): Promise<TopProduct[]> => {
       const start = lastDays(30)[0]?.date ?? "1970-01-01";
@@ -247,16 +248,43 @@ function Dashboard() {
   const money = [
     {
       k: "todaySales" as const,
+      module: "sales" as const,
       v: data?.todaySales ?? 0,
       note: `Gross profit ${bdt(data?.todayProfit)}`,
     },
-    { k: "todayPurchase" as const, v: data?.todayPurchase ?? 0, note: "Posted purchases today" },
-    { k: "cashBalance" as const, v: data?.cash ?? 0, note: "All cash accounts" },
-    { k: "bankBalance" as const, v: data?.bank ?? 0, note: "Bank + bKash/Nagad/Rocket" },
-    { k: "stockValue" as const, v: data?.stockValue ?? 0, note: "At landed cost" },
-    { k: "customerDue" as const, v: data?.customerDue ?? 0, note: "Opening + sales − collections" },
+    {
+      k: "todayPurchase" as const,
+      module: "purchases" as const,
+      v: data?.todayPurchase ?? 0,
+      note: "Posted purchases today",
+    },
+    {
+      k: "cashBalance" as const,
+      module: "cash_bank" as const,
+      v: data?.cash ?? 0,
+      note: "All cash accounts",
+    },
+    {
+      k: "bankBalance" as const,
+      module: "cash_bank" as const,
+      v: data?.bank ?? 0,
+      note: "Bank + bKash/Nagad/Rocket",
+    },
+    {
+      k: "stockValue" as const,
+      module: "inventory" as const,
+      v: data?.stockValue ?? 0,
+      note: "At landed cost",
+    },
+    {
+      k: "customerDue" as const,
+      module: "due_collection" as const,
+      v: data?.customerDue ?? 0,
+      note: "Opening + sales − collections",
+    },
     {
       k: "supplierDue" as const,
+      module: "supplier_payments" as const,
       v: data?.supplierDue ?? 0,
       note: "Opening + purchases − payments",
     },
@@ -264,6 +292,7 @@ function Dashboard() {
   const counts = [
     {
       label: t("products"),
+      module: "products" as const,
       v: data?.products,
       sub: `${data?.variants ?? 0} variants`,
       icon: Package,
@@ -271,6 +300,7 @@ function Dashboard() {
     },
     {
       label: t("customers"),
+      module: "customers" as const,
       v: data?.customers,
       sub: `Credit limits ${bdt(data?.creditLimit)}`,
       icon: Users,
@@ -278,6 +308,7 @@ function Dashboard() {
     },
     {
       label: t("suppliers"),
+      module: "suppliers" as const,
       v: data?.suppliers,
       sub: "Active suppliers",
       icon: Handshake,
@@ -285,6 +316,7 @@ function Dashboard() {
     },
     {
       label: t("branches"),
+      module: "branches" as const,
       v: data?.branches,
       sub: "Shops & warehouses",
       icon: GitBranch,
@@ -292,7 +324,7 @@ function Dashboard() {
     },
   ];
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{t("dashboard")}</h1>
@@ -300,164 +332,192 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4">
-        {money.map((m) => (
-          <div key={m.k} className="bg-card p-5">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t(m.k)}
+      <div className="grid min-w-0 gap-px overflow-hidden rounded-lg border bg-border min-[420px]:grid-cols-2 lg:grid-cols-4">
+        {money
+          .filter((m) => hasAccess(access, m.module))
+          .map((m) => (
+            <div key={m.k} className="min-w-0 overflow-hidden bg-card p-3 sm:p-5">
+              <div className="break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t(m.k)}
+              </div>
+              <div className="num mt-2 break-all font-display text-xl font-semibold sm:text-2xl xl:text-3xl">
+                {bdt(m.v)}
+              </div>
+              <div className="mt-1 break-words text-xs text-muted-foreground">{m.note}</div>
             </div>
-            <div className="num mt-2 font-display text-3xl font-semibold">{bdt(m.v)}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{m.note}</div>
-          </div>
-        ))}
+          ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {counts.map((c) => (
-          <Link
-            key={c.label}
-            to={c.to}
-            className="group rounded-lg border bg-card p-5 transition-colors hover:border-primary/40"
-          >
-            <c.icon className="h-5 w-5 text-primary" />
-            <div className="num mt-3 font-display text-2xl font-semibold">{c.v ?? "—"}</div>
-            <div className="text-sm font-medium">{c.label}</div>
-            <div className="text-xs text-muted-foreground">{c.sub}</div>
-          </Link>
-        ))}
+      <div className="grid min-w-0 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-4">
+        {counts
+          .filter((c) => hasAccess(access, c.module))
+          .map((c) => (
+            <Link
+              key={c.label}
+              to={c.to}
+              className="group min-w-0 overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 sm:p-5"
+            >
+              <c.icon className="h-5 w-5 text-primary" />
+              <div className="num mt-3 break-all font-display text-xl font-semibold sm:text-2xl">
+                {c.v ?? "—"}
+              </div>
+              <div className="break-words text-sm font-medium">{c.label}</div>
+              <div className="break-words text-xs text-muted-foreground">{c.sub}</div>
+            </Link>
+          ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-7">
-        <div className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-4">
-          <div className="text-sm font-semibold">Sales &amp; profit — last 14 days</div>
-          <div className="mb-4 text-xs text-muted-foreground">
-            Posted invoices; gross profit before other expenses
-          </div>
-          <ChartContainer config={trendConfig} className="aspect-auto h-[240px] w-full">
-            <AreaChart data={trend.data ?? []} margin={{ left: 4, right: 8, top: 8 }}>
-              <defs>
-                <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.7} />
-                  <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.05} />
-                </linearGradient>
-                <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.7} />
-                  <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={12}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                width={52}
-                tickFormatter={(v: number) => compact(v)}
-              />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-              <Area
-                dataKey="sales"
-                type="monotone"
-                fill="url(#fillSales)"
-                stroke="var(--color-sales)"
-                strokeWidth={2}
-              />
-              <Area
-                dataKey="profit"
-                type="monotone"
-                fill="url(#fillProfit)"
-                stroke="var(--color-profit)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ChartContainer>
-        </div>
-
-        <div className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-3">
-          <div className="text-sm font-semibold">Top products — 30 days</div>
-          <div className="mb-4 text-xs text-muted-foreground">By revenue</div>
-          {top.data?.length ? (
-            <ChartContainer config={topConfig} className="aspect-auto h-[240px] w-full">
-              <BarChart data={top.data} layout="vertical" margin={{ left: 4, right: 12 }}>
-                <CartesianGrid horizontal={false} />
+      {hasAccess(access, "sales") && (
+        <div className="grid min-w-0 gap-4 lg:grid-cols-7">
+          <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-5 lg:col-span-4">
+            <div className="text-sm font-semibold">Sales &amp; profit — last 14 days</div>
+            <div className="mb-4 text-xs text-muted-foreground">
+              Posted invoices; gross profit before other expenses
+            </div>
+            <ChartContainer config={trendConfig} className="aspect-auto h-[240px] w-full">
+              <AreaChart data={trend.data ?? []} margin={{ left: 4, right: 8, top: 8 }}>
+                <defs>
+                  <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.7} />
+                    <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.7} />
+                    <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} />
                 <XAxis
-                  type="number"
+                  dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v: number) => compact(v)}
+                  tickMargin={8}
+                  minTickGap={12}
                 />
                 <YAxis
-                  type="category"
-                  dataKey="name"
                   tickLine={false}
                   axisLine={false}
-                  width={110}
-                  tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
+                  width={52}
+                  tickFormatter={(v: number) => compact(v)}
                 />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
-              </BarChart>
+                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                <Area
+                  dataKey="sales"
+                  type="monotone"
+                  fill="url(#fillSales)"
+                  stroke="var(--color-sales)"
+                  strokeWidth={2}
+                />
+                <Area
+                  dataKey="profit"
+                  type="monotone"
+                  fill="url(#fillProfit)"
+                  stroke="var(--color-profit)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
             </ChartContainer>
-          ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              No sales in the last 30 days.
-            </p>
-          )}
+          </div>
+
+          <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-5 lg:col-span-3">
+            <div className="text-sm font-semibold">Top products — 30 days</div>
+            <div className="mb-4 text-xs text-muted-foreground">By revenue</div>
+            {top.data?.length ? (
+              <ChartContainer config={topConfig} className="aspect-auto h-[240px] w-full">
+                <BarChart data={top.data} layout="vertical" margin={{ left: 4, right: 12 }}>
+                  <CartesianGrid horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) => compact(v)}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    width={110}
+                    tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                  <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                No sales in the last 30 days.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Quick actions
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="secondary">
-            <Link to="/app/customers">
-              <Plus className="mr-1 h-4 w-4" />
-              Add Customer
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/suppliers">
-              <Plus className="mr-1 h-4 w-4" />
-              Add Supplier
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/products">
-              <Plus className="mr-1 h-4 w-4" />
-              Add Product
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to="/app/purchases/new">
-              <Plus className="mr-1 h-4 w-4" />
-              New Purchase
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/imei">IMEI Search</Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/supplier-payments">Pay Supplier</Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/expenses">Add Expense</Link>
-          </Button>
-          <Button asChild>
-            <Link to="/app/sales/new">
-              <Plus className="mr-1 h-4 w-4" />
-              New Sale
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/app/due-collection">Receive Payment</Link>
-          </Button>
+          {hasAccess(access, "customers", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/customers">
+                <Plus className="mr-1 h-4 w-4" />
+                Add Customer
+              </Link>
+            </Button>
+          )}
+          {hasAccess(access, "suppliers", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/suppliers">
+                <Plus className="mr-1 h-4 w-4" />
+                Add Supplier
+              </Link>
+            </Button>
+          )}
+          {hasAccess(access, "products", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/products">
+                <Plus className="mr-1 h-4 w-4" />
+                Add Product
+              </Link>
+            </Button>
+          )}
+          {hasAccess(access, "purchases", "create") && (
+            <Button asChild>
+              <Link to="/app/purchases/new">
+                <Plus className="mr-1 h-4 w-4" />
+                New Purchase
+              </Link>
+            </Button>
+          )}
+          {hasAccess(access, "imei") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/imei">IMEI Search</Link>
+            </Button>
+          )}
+          {hasAccess(access, "supplier_payments", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/supplier-payments">Pay Supplier</Link>
+            </Button>
+          )}
+          {hasAccess(access, "expenses", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/expenses">Add Expense</Link>
+            </Button>
+          )}
+          {hasAccess(access, "sales", "create") && (
+            <Button asChild>
+              <Link to="/app/sales/new">
+                <Plus className="mr-1 h-4 w-4" />
+                New Sale
+              </Link>
+            </Button>
+          )}
+          {hasAccess(access, "due_collection", "create") && (
+            <Button asChild variant="secondary">
+              <Link to="/app/due-collection">Receive Payment</Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

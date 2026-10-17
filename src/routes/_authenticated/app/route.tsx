@@ -5,6 +5,7 @@ import {
   redirect,
   useNavigate,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { BusinessProvider, type Business, type Role, useBusiness } from "@/lib/business";
 import { useI18n, type TKey } from "@/lib/i18n";
-import { ROLE_LABELS } from "@/lib/format";
+import { friendlyError, ROLE_LABELS } from "@/lib/format";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,12 @@ import { pendingEntry } from "@/lib/home-entry";
 import { VisitLogger } from "@/components/erp/VisitLogger";
 import { MobileBottomNav } from "@/components/erp/MobileBottomNav";
 import { NotificationBell } from "@/components/erp/NotificationBell";
+import {
+  fullAccessMatrix,
+  hasAccess,
+  moduleForPath,
+  type AccessMatrix,
+} from "@/lib/access-control";
 
 export const Route = createFileRoute("/_authenticated/app")({
   beforeLoad: async ({ context }) => {
@@ -73,7 +80,7 @@ export const Route = createFileRoute("/_authenticated/app")({
     if (typeof navigator === "undefined" || navigator.onLine || !memberships) {
       const { data, error } = await supabase
         .from("business_members")
-        .select("role, businesses(*)")
+        .select("role, businesses(id,name,phone,address,currency,type)")
         .eq("user_id", context.user.id)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true });
@@ -108,7 +115,6 @@ type NavItem = {
   soon?: boolean;
   roles?: Role[];
 };
-const EMI_ROLES_NAV: Role[] = ["owner", "manager", "purchase_officer", "salesman", "accountant"];
 const NAV: { group?: string; items: NavItem[] }[] = [
   {
     items: [
@@ -133,7 +139,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
       { to: "/app/quotations", icon: FileText, k: "quotations" },
       { to: "/app/orders", icon: CalendarCheck, k: "orders" },
       { to: "/app/courier", icon: Truck, k: "courier" },
-      { to: "/app/emi", icon: Receipt, k: "emi", roles: EMI_ROLES_NAV },
+      { to: "/app/emi", icon: Receipt, k: "emi" },
       { to: "/app/due-collection", icon: HandCoins, k: "dueCollection" },
     ],
   },
@@ -192,6 +198,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
       { to: "/app/daily-reports", icon: CalendarCheck, k: "dailyReports" },
       { to: "/app/branches", icon: GitBranch, k: "branches" },
       { to: "/app/team", icon: ShieldCheck, k: "team" },
+      { to: "/app/access-control", icon: ShieldCheck, k: "team", roles: ["owner"] },
       { to: "/app/audit", icon: History, k: "audit" },
       { to: "/app/sync-history", icon: History, k: "syncHistory" },
       { to: "/app/usage", icon: BarChart3, k: "usage" },
@@ -201,7 +208,15 @@ const NAV: { group?: string; items: NavItem[] }[] = [
   },
 ];
 
-function SidebarNav({ onNav, compact = false }: { onNav?: () => void; compact?: boolean }) {
+function SidebarNav({
+  onNav,
+  compact = false,
+  access,
+}: {
+  onNav?: () => void;
+  compact?: boolean;
+  access: AccessMatrix | null;
+}) {
   const { t } = useI18n();
   const { role } = useBusiness();
   const hasRole = (r?: Role[]) => !r || r.includes(role);
@@ -217,7 +232,7 @@ function SidebarNav({ onNav, compact = false }: { onNav?: () => void; compact?: 
             </div>
           )}
           {g.items
-            .filter((it) => hasRole(it.roles))
+            .filter((it) => hasRole(it.roles) && hasAccess(access, moduleForPath(it.to ?? "/app")))
             .map((it) =>
               it.soon ? (
                 <div
@@ -264,13 +279,32 @@ function AppLayout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("*")
+        .select("id,name,phone,address,currency,type")
         .eq("id", initialBusiness.id)
         .single();
       if (error) throw error;
       return data;
     },
   });
+  const {
+    data: fetchedAccess,
+    error: accessError,
+    isPending: accessPending,
+  } = useQuery({
+    enabled: role !== "owner",
+    queryKey: ["effective-access", business.id, user.id],
+    refetchInterval: 5_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_effective_access", { _biz: business.id });
+      if (error) throw error;
+      return data as AccessMatrix;
+    },
+  });
+  const access = role === "owner" ? fullAccessMatrix() : (fetchedAccess ?? null);
+  const checkingAccess = role !== "owner" && accessPending;
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const currentModule = moduleForPath(pathname);
+  const currentRouteAllowed = hasAccess(access, currentModule);
   const { t, lang, setLang } = useI18n();
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState(false);
@@ -308,6 +342,7 @@ function AppLayout() {
   const navigate = useNavigate();
 
   const { data: alertCount = 0 } = useQuery({
+    enabled: hasAccess(access, "guardian"),
     queryKey: ["guardian-count", business.id],
     refetchInterval: 5 * 60_000,
     queryFn: async () => {
@@ -342,7 +377,10 @@ function AppLayout() {
   const groups = useMemo(
     () =>
       NAV.map((g) => {
-        const items = g.items.filter((i) => i.to && (!i.roles || i.roles.includes(role)));
+        const items = g.items.filter(
+          (i) =>
+            i.to && (!i.roles || i.roles.includes(role)) && hasAccess(access, moduleForPath(i.to)),
+        );
         return {
           group: g.group ?? "Home",
           items: items.map((i) => ({
@@ -353,7 +391,7 @@ function AppLayout() {
           })),
         };
       }),
-    [t, role],
+    [t, role, access],
   );
 
   async function signOut() {
@@ -386,12 +424,20 @@ function AppLayout() {
   );
 
   return (
-    <BusinessProvider value={{ business, role, userId: user.id, email: user.email ?? "" }}>
+    <BusinessProvider
+      value={{
+        business,
+        role,
+        userId: user.id,
+        email: user.email ?? "",
+        access: access ?? {},
+      }}
+    >
       <div className="app-shell flex h-svh min-h-0 w-full min-w-0 touch-manipulation overflow-hidden bg-background">
         {side ? (
           <aside className="hidden h-full w-64 shrink-0 flex-col bg-sidebar shadow-xl md:flex">
             {brand}
-            <SidebarNav />
+            <SidebarNav access={access} />
             <button
               type="button"
               onClick={toggleSide}
@@ -451,7 +497,7 @@ function AppLayout() {
                 ))}
               </div>
             </div>
-            <SidebarNav onNav={() => setOpen(false)} compact />
+            <SidebarNav access={access} onNav={() => setOpen(false)} compact />
           </SheetContent>
         </Sheet>
         <div className="flex min-w-0 flex-1 flex-col">
@@ -479,28 +525,30 @@ function AppLayout() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="hidden items-center gap-2 lg:flex">
-                <NotificationBell />
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="relative"
-                  title="Owner Guardian alerts"
-                >
-                  <Link to="/app/guardian" aria-label="Guardian alerts">
-                    <ShieldAlert
-                      className={cn(
-                        "h-4 w-4",
-                        alertCount ? "text-destructive" : "text-muted-foreground",
+                {hasAccess(access, "team") && <NotificationBell />}
+                {hasAccess(access, "guardian") && (
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    title="Owner Guardian alerts"
+                  >
+                    <Link to="/app/guardian" aria-label="Guardian alerts">
+                      <ShieldAlert
+                        className={cn(
+                          "h-4 w-4",
+                          alertCount ? "text-destructive" : "text-muted-foreground",
+                        )}
+                      />
+                      {alertCount > 0 && (
+                        <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                          {alertCount}
+                        </span>
                       )}
-                    />
-                    {alertCount > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                        {alertCount}
-                      </span>
-                    )}
-                  </Link>
-                </Button>
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -582,7 +630,24 @@ function AppLayout() {
                 </p>
               </div>
               <VisitLogger businessId={business.id} />
-              <Outlet />
+              {checkingAccess ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Checking page access...
+                </p>
+              ) : accessError ? (
+                <p className="py-10 text-center text-sm text-destructive">
+                  Could not verify access: {friendlyError(accessError)}
+                </p>
+              ) : currentRouteAllowed ? (
+                <Outlet />
+              ) : (
+                <section className="mx-auto max-w-xl rounded-lg border bg-card p-6 text-center">
+                  <h1 className="text-lg font-semibold">Access denied</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Your account has not been granted access to this page.
+                  </p>
+                </section>
+              )}
             </div>
           </main>
           <MobileBottomNav onMenu={() => setOpen(true)} menuOpen={open} />

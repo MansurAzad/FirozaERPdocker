@@ -54,6 +54,8 @@ function Page() {
       title={t("suppliers")}
       sub="Distributors and importers you buy from."
       canWrite={useCan("suppliers")}
+      canCreate={useCan("suppliers", "create")}
+      canEdit={useCan("suppliers", "edit")}
       canDelete={useCan("deleteParty")}
       searchKeys={["name", "company", "mobile"]}
       fields={[

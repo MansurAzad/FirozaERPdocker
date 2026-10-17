@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
+import { hasAccess } from "@/lib/access-control";
 import { friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, selectCls } from "@/components/erp/ui";
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/app/emi/plans/new")({
 });
 
 function PlanNew() {
-  const { business, role } = useBusiness();
+  const { business, access } = useBusiness();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [tenure, setTenure] = useState("12");
@@ -26,8 +27,7 @@ function PlanNew() {
   const [fee, setFee] = useState("0");
   const [status, setStatus] = useState("active");
 
-  const can =
-    role === "owner" || role === "manager" || role === "accountant" || role === "purchase_officer";
+  const can = hasAccess(access, "emi", "create");
 
   const save = useMutation({
     mutationFn: async () => {

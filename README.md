@@ -1,18 +1,16 @@
-# Mobile Biz Suite
-
-# MOBILE D-ERP
+# FIROZA ENTERPRISE
 ## Retail & Wholesale Mobile Business Management & Accounting ERP
 You are a senior **Product Architect, Business Analyst, UI/UX Designer, Database Architect, Full-Stack Engineer, Accounting-System Designer, and SaaS Product Strategist**.
 Your task is to design and develop a complete, production-ready ERP software called:
-# **MOBILE D-ERP**
+# **FIROZA ENTERPRISE**
 ### Product Positioning
-**MOBILE D-ERP is a specialized business management and accounting ERP for mobile phone retailers, wholesalers, dealers, sub-dealers, and mobile accessory businesses.**
+**FIROZA ENTERPRISE is a specialized business management and accounting ERP for mobile phone retailers, wholesalers, dealers, sub-dealers, and mobile accessory businesses.**
 The system must manage the complete business lifecycle:
 **Purchase → Inventory → IMEI → Sales → Customer → Due → Payment → Cash/Bank → Expense → Supplier → Accounting → Profit → Reports**
 The system must NOT be designed as a generic accounting application. It must be specifically optimized for the **mobile phone retail and wholesale business in Bangladesh**.
 ---
 # 1. PRIMARY TARGET USERS
-The primary customers of MOBILE D-ERP are:
+The primary customers of FIROZA ENTERPRISE are:
 ### A. Retail Mobile Shop
 Businesses that sell mobile phones and accessories directly to end customers.
 Typical needs:
@@ -80,11 +78,11 @@ The system should dynamically enable relevant modules based on the business type
 However, all modules must remain available to administrators.
 ---
 # 4. MULTI-TENANT SaaS ARCHITECTURE
-MOBILE D-ERP must be designed as a SaaS application.
+FIROZA ENTERPRISE must be designed as a SaaS application.
 Each business/company is an independent tenant.
 Example:
 ```text
-MOBILE D-ERP
+FIROZA ENTERPRISE
 │
 ├── Business A
 │   ├── Branch 01
@@ -1449,7 +1447,7 @@ Supplier Due
 Advanced accounting terminology can remain available under the Accounting module.
 ---
 # 59. PRODUCT GOAL
-MOBILE D-ERP should answer these questions immediately:
+FIROZA ENTERPRISE should answer these questions immediately:
 ### Sales
 > আজ কত বিক্রি হয়েছে?
 ### Profit
@@ -1472,7 +1470,7 @@ MOBILE D-ERP should answer these questions immediately:
 # 60. FINAL PRODUCT STRUCTURE
 The final system should be organized as:
 ```text
-                         MOBILE D-ERP
+                         FIROZA ENTERPRISE
                               │
        ┌──────────────────────┼──────────────────────┐
        │                      │                      │
@@ -1561,7 +1559,7 @@ It should be:
 * Suitable for future mobile applications
 * Ready for future AI-powered analytics
 The product name must consistently appear as:
-# **MOBILE D-ERP**
+# **FIROZA ENTERPRISE**
 Use the tagline:
 > **“মোবাইল ব্যবসার সম্পূর্ণ ডিজিটাল ব্যবস্থাপনা”**
 Do not use placeholder screens as the final implementation. Build each module with real data models, real CRUD operations, real relationships, proper validation, permissions, transaction handling and interconnected business logic.

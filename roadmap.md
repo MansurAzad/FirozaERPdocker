@@ -1,4 +1,4 @@
-# MOBILE D-ERP Roadmap
+# FIROZA ENTERPRISE Roadmap
 - [x] Stabilize Brand Shops at 320/390/780/1280px; seven tabs and fictional shop create/read/rename/delete verified, test shops removed
 - [x] Audit app CRUD and connections; 37 authenticated static pages render; shop ↔ branch maintenance connected, master writes tenant-scoped and related queries refreshed. Posted finance/stock/history remain protected; not every financial write was exercised against live records.
 - [x] Complete six shop accounts with date-filtered separate sales, expenses, stock and exported reports; all six read paths, Excel export, shop-specific expense form and existing posted-record snapshot verified without inserting live transactions

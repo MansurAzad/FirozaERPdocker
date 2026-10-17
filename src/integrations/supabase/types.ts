@@ -8,6 +8,38 @@ export type Database = {
   };
   public: {
     Tables: {
+      access_roles: {
+        Row: {
+          business_id: string;
+          created_at: string;
+          description: string;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          business_id: string;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          business_id?: string;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "access_roles_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       accounts: {
         Row: {
           business_id: string;
@@ -506,6 +538,7 @@ export type Database = {
       };
       business_members: {
         Row: {
+          access_role_id: string | null;
           business_id: string;
           created_at: string;
           display_name: string | null;
@@ -514,6 +547,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          access_role_id?: string | null;
           business_id: string;
           created_at?: string;
           display_name?: string | null;
@@ -522,6 +556,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          access_role_id?: string | null;
           business_id?: string;
           created_at?: string;
           display_name?: string | null;
@@ -536,6 +571,54 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "businesses";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      business_access_permissions: {
+        Row: {
+          access_role_id: string | null;
+          allowed: boolean;
+          business_id: string;
+          created_at: string;
+          id: string;
+          module: string;
+          permission: string;
+          user_id: string | null;
+        };
+        Insert: {
+          access_role_id?: string | null;
+          allowed: boolean;
+          business_id: string;
+          created_at?: string;
+          id?: string;
+          module: string;
+          permission: string;
+          user_id?: string | null;
+        };
+        Update: {
+          access_role_id?: string | null;
+          allowed?: boolean;
+          business_id?: string;
+          created_at?: string;
+          id?: string;
+          module?: string;
+          permission?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_access_permissions_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "business_access_permissions_business_id_access_role_id_fkey";
+            columns: ["business_id", "access_role_id"];
+            isOneToOne: false;
+            referencedRelation: "access_roles";
+            referencedColumns: ["business_id", "id"];
           },
         ];
       };
@@ -5492,6 +5575,8 @@ export type Database = {
       };
     };
     Functions: {
+      access_module_for_table: { Args: { _table: string }; Returns: string | null };
+      access_rpc_allowed: { Args: { _biz: string }; Returns: boolean };
       _biz_tables: { Args: never; Returns: string[] };
       _bulk: { Args: never; Returns: boolean };
       _guardian_run: { Args: { _biz: string }; Returns: Json };
@@ -5870,6 +5955,17 @@ export type Database = {
           status: string;
         }[];
       };
+      get_effective_access: { Args: { _biz: string }; Returns: Json };
+      get_company_profile: { Args: { _biz: string }; Returns: Json };
+      get_guardian_runtime_config: { Args: { _biz: string }; Returns: Json };
+      get_member_access_config: {
+        Args: { _biz: string; _user: string };
+        Returns: Json;
+      };
+      has_module_access: {
+        Args: { _biz: string; _module: string; _permission?: string };
+        Returns: boolean;
+      };
       get_kpi_trend: {
         Args: {
           _biz: string;
@@ -6140,6 +6236,29 @@ export type Database = {
         Returns: undefined;
       };
       run_guardian_checks: { Args: { _biz: string }; Returns: Json };
+      save_access_role: {
+        Args: {
+          _biz: string;
+          _description: string;
+          _name: string;
+          _permissions: Json;
+          _role_id: string | null;
+        };
+        Returns: string;
+      };
+      save_member_access: {
+        Args: {
+          _biz: string;
+          _overrides: Json;
+          _role_id: string | null;
+          _user: string;
+        };
+        Returns: undefined;
+      };
+      delete_access_role: {
+        Args: { _biz: string; _role_id: string };
+        Returns: undefined;
+      };
       save_quotation: {
         Args: { _biz: string; _data?: Json; _id?: string };
         Returns: string;

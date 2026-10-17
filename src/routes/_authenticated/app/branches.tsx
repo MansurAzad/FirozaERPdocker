@@ -39,6 +39,8 @@ function Page() {
   const { branch } = Route.useSearch();
   const { t } = useI18n();
   const can = useCan("branches");
+  const canCreate = useCan("branches", "create");
+  const canEdit = useCan("branches", "edit");
   return (
     <EntityManager
       table="branches"
@@ -55,6 +57,8 @@ function Page() {
       sub="Head office, shops and warehouses."
       orderBy="name"
       canWrite={can}
+      canCreate={canCreate}
+      canEdit={canEdit}
       canDelete={can}
       searchKeys={["name", "address", "id"]}
       fields={[

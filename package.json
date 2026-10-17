@@ -10,6 +10,7 @@
     "tauri:build": "tauri build",
     "tauri:build:ci": "tauri build --config src-tauri/tauri.ci.conf.json",
     "db:apply-daily-summary": "supabase db query --linked --file drizzle/migrations/0050_optimize_daily_summary.sql",
+    "db:apply-access-view-guard": "supabase db query --linked --file drizzle/migrations/0052_access_permission_view_prerequisite.sql",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",

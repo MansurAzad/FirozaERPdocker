@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/erp/EntityManager";
 import { F, selectCls, today } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { canUseEmi, EMI_PLAN_WRITE_ROLES } from "@/lib/emi";
+import { hasAccess } from "@/lib/access-control";
 
 const schema = z.object({
   branch: z.string().optional(),
@@ -83,11 +83,11 @@ type EmiStockRow = {
 };
 
 function EmiNew() {
-  const { business, role } = useBusiness();
+  const { business, access } = useBusiness();
   const nav = useNavigate();
   const branches = useBranches(business.id);
   const accounts = useMoneyAccounts(business.id);
-  const allowed = canUseEmi(role);
+  const allowed = hasAccess(access, "emi", "create");
   const [branch, setBranch] = useState(Route.useSearch().branch ?? "");
   const [customer, setCustomer] = useState(Route.useSearch().customer ?? "");
   const [date, setDate] = useState(today());

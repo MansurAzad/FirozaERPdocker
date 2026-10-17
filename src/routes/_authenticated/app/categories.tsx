@@ -28,6 +28,8 @@ export const Route = createFileRoute("/_authenticated/app/categories")({
 function Page() {
   const { t } = useI18n();
   const can = useCan("catalog");
+  const canCreate = useCan("catalog", "create");
+  const canEdit = useCan("catalog", "edit");
   return (
     <EntityManager
       table="categories"
@@ -35,6 +37,8 @@ function Page() {
       sub="IMEI-tracked categories require an IMEI for every unit."
       orderBy="name"
       canWrite={can}
+      canCreate={canCreate}
+      canEdit={canEdit}
       canDelete={can}
       searchKeys={["name"]}
       fields={[

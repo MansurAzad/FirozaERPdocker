@@ -1,21 +1,34 @@
-# MOBILE D-ERP — Product Architecture
+# FIROZA ENTERPRISE — Product Architecture
+
 > মোবাইল ব্যবসার সম্পূর্ণ ডিজিটাল ব্যবস্থাপনা
 
 ## 1. Platform
+
 - Frontend: React 19 + TanStack Start/Router/Query, Tailwind v4, shadcn/ui, React Hook Form, Zod.
 - Backend: TanStack server functions (typed RPC) instead of Express; runs on edge workers.
 - Database: PostgreSQL (Lovable Cloud) with RLS for tenant isolation, NUMERIC(14,2) for money.
 - Critical business transactions (sale, purchase, return, payment, transfer) run as **Postgres functions (RPC)** so every step commits or rolls back together.
-- Auth: email/password + Google; roles in `user_roles` with a `has_permission()` security-definer function, enforced in RLS and server functions.
+- Auth: email/password + Google; per-business roles in `business_members.role`, enforced in RLS and server functions.
 
 ## 2. Tenant model
+
 ```text
 businesses 1─* branches 1─* warehouses
 businesses 1─* business_members (user_id, role, branch scope)
 every business table: business_id NOT NULL + RLS: is_member(business_id)
 ```
 
-## 3. Module dependency map
+## 3. Advanced access control
+
+- Custom access-role templates and per-member overrides are scoped to one business.
+- Permissions are explicit per module and action (`view`, `create`, `edit`, `delete`, `approve`, `export`); unconfigured access is denied and the business owner always retains full access.
+- The authenticated app filters navigation, command-palette entries, dashboard cards, and route rendering using the effective permission map.
+- PostgreSQL remains authoritative: restrictive RLS policies, guarded RPCs, and write triggers enforce the same module/action rules for direct API calls and transactional writes. Public views run with invoker security.
+- Company identity exposes only the fields needed by the app shell. Detailed company-profile and Guardian runtime data is returned by permission-checked RPCs.
+- The access-control schema and policies are installed by `drizzle/migrations/0051_advanced_access_control.sql`. Existing non-owner members remain denied until an owner assigns a role or explicit grants. Apply subsequent corrections with their individual migration; `npm run db:apply-access-view-guard` applies `drizzle/migrations/0052_access_permission_view_prerequisite.sql`, which ensures every non-owner action permission also requires module view access.
+
+## 4. Module dependency map
+
 ```text
 Auth ─► Business ─► Branch/Warehouse ─► Users/Roles/Permissions
                          │
@@ -41,7 +54,8 @@ Auth ─► Business ─► Branch/Warehouse ─► Users/Roles/Permissions
         Reports ─► Analytics ─► AI assistant (future)
 ```
 
-## 4. Core ERD (Phase 1–3)
+## 5. Core ERD (Phase 1–3)
+
 ```text
 businesses(id, name, type[retail|wholesale|both], currency, logo_url)
 branches(id, business_id, name, kind[head|branch|warehouse])
@@ -85,19 +99,21 @@ customer_ledger / supplier_ledger → SQL views over sales, payments, returns
 audit_logs(id, business_id, user_id, module, action, record_id, old, new, at)
 ```
 
-## 5. Automatic journal rules
-| Event | Debit | Credit |
-|---|---|---|
-| Cash sale | Cash/Bank | Sales Revenue |
-| Credit sale | Customer Due (AR) | Sales Revenue |
-| Every sale | COGS | Inventory |
-| Customer payment | Cash/Bank | Customer Due |
-| Purchase | Inventory | Supplier Due (AP) / Cash |
-| Supplier payment | Supplier Due | Cash/Bank |
-| Expense | Expense account | Cash/Bank |
-| Returns | reverse of original |
+## 6. Automatic journal rules
 
-## 6. Phases
+| Event            | Debit               | Credit                   |
+| ---------------- | ------------------- | ------------------------ |
+| Cash sale        | Cash/Bank           | Sales Revenue            |
+| Credit sale      | Customer Due (AR)   | Sales Revenue            |
+| Every sale       | COGS                | Inventory                |
+| Customer payment | Cash/Bank           | Customer Due             |
+| Purchase         | Inventory           | Supplier Due (AP) / Cash |
+| Supplier payment | Supplier Due        | Cash/Bank                |
+| Expense          | Expense account     | Cash/Bank                |
+| Returns          | reverse of original |
+
+## 7. Phases
+
 1. Foundation: auth, onboarding (business type), branches, members/roles, products, brands, categories, customers, suppliers.
 2. Core: purchase + IMEI + landed cost, sales + IMEI pick + price levels, stock, dues, payments.
 3. Financial: cash, bank, expenses, accounting engine, ledgers, P&L, balance sheet, daily closing.

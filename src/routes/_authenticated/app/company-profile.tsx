@@ -15,22 +15,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { friendlyError } from "@/lib/format";
-import type { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
 type CompanyProfileForm = ReturnType<typeof companyProfileForm>;
-type CompanyProfileRow = Pick<
-  Database["public"]["Tables"]["businesses"]["Row"],
-  "name" | "phone" | "address" | "trade_license" | "guardian_profile"
->;
+type CompanyProfileRow = {
+  name: string;
+  phone: string | null;
+  address: string | null;
+  trade_license?: string | null;
+  guardian_profile?: unknown;
+};
+const companyProfileRowSchema = z.object({
+  name: z.string(),
+  phone: z.string().nullable(),
+  address: z.string().nullable(),
+  trade_license: z.string().nullable(),
+  guardian_profile: z.unknown(),
+});
 
 function companyProfileForm(company: CompanyProfileRow) {
-  const profile =
-    typeof company.guardian_profile === "object" &&
-    company.guardian_profile !== null &&
-    !Array.isArray(company.guardian_profile)
-      ? company.guardian_profile
-      : {};
+  const isProfileObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+  const profile = isProfileObject(company.guardian_profile) ? company.guardian_profile : {};
   const text = (key: string) => (typeof profile[key] === "string" ? profile[key] : "");
   return {
     name: company.name,
@@ -73,7 +80,13 @@ function ProfilePage() {
   const qc = useQueryClient();
   const router = useRouter();
   const save = useServerFn(saveGuardianProfile);
-  const [form, setForm] = useState<CompanyProfileForm>(() => companyProfileForm(business));
+  const [form, setForm] = useState<CompanyProfileForm>(() =>
+    companyProfileForm({
+      name: business.name,
+      phone: business.phone,
+      address: business.address,
+    }),
+  );
   const [dirty, setDirty] = useState(false);
   const profileQuery = useQuery({
     queryKey: companyProfileKey(business.id),
@@ -81,13 +94,9 @@ function ProfilePage() {
     staleTime: 30_000,
     refetchOnMount: "always",
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("businesses")
-        .select("name,phone,address,trade_license,guardian_profile")
-        .eq("id", business.id)
-        .single();
+      const { data, error } = await supabase.rpc("get_company_profile", { _biz: business.id });
       if (error) throw error;
-      return companyProfileForm(data);
+      return companyProfileForm(companyProfileRowSchema.parse(data));
     },
   });
   useEffect(() => {

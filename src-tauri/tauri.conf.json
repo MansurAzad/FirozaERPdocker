@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Firoza ERP",
+  "productName": "FIROZA ENTERPRISE",
   "version": "1.0.8",
   "identifier": "com.firozaenterprise.erp",
   "build": {
@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Firoza ERP",
+        "title": "FIROZA ENTERPRISE",
         "url": "https://firozaenterprise.vercel.app",
         "width": 1440,
         "height": 900,

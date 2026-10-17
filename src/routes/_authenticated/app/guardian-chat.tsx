@@ -4,7 +4,7 @@ import { GuardianNav } from "@/components/erp/GuardianNav";
 import { GuardianChat } from "@/components/erp/GuardianChat";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { useBusiness } from "@/lib/business";
-import { canReadGuardian } from "@/lib/guardian/safety";
+import { hasAccess } from "@/lib/access-control";
 export const Route = createFileRoute("/_authenticated/app/guardian-chat")({
   validateSearch: (s: Record<string, unknown>) => ({
     brief: s["brief"] === true || s["brief"] === "true",
@@ -28,16 +28,16 @@ export const Route = createFileRoute("/_authenticated/app/guardian-chat")({
   component: ChatPage,
 });
 function ChatPage() {
-  const { role, business } = useBusiness();
+  const { access, business } = useBusiness();
   const { brief } = Route.useSearch();
   return (
     <div className="mx-auto max-w-4xl">
       <GuardianNav />
       <PageHeader title="Ask Guardian" />
-      {canReadGuardian(role) ? (
+      {hasAccess(access, "guardian") ? (
         <GuardianChat key={business.id} brief={brief} />
       ) : (
-        <p className="text-destructive">Owner, manager or accountant access required.</p>
+        <p className="text-destructive">Guardian access has not been granted to this account.</p>
       )}
     </div>
   );

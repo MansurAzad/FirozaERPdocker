@@ -17,7 +17,7 @@ pub fn run() {
                 match updater.check().await {
                     Ok(Some(update)) => {
                         eprintln!(
-                            "Installing Firoza ERP update {} over {}",
+                            "Installing FIROZA ENTERPRISE update {} over {}",
                             update.version, update.current_version
                         );
                         if let Err(error) = update.download_and_install(|_, _| {}, || {}).await {
@@ -31,5 +31,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("failed to run Firoza ERP");
+        .expect("failed to run FIROZA ENTERPRISE");
 }

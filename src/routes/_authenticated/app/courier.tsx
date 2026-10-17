@@ -410,7 +410,7 @@ function DeliveryRow({
             size="sm"
             variant="outline"
             disabled={busy || !dirty}
-            onClick={() => save.mutate()}
+            onClick={() => save.mutate({})}
           >
             <Save className="mr-1 h-4 w-4" />
             Save

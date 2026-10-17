@@ -27,6 +27,8 @@ export const Route = createFileRoute("/_authenticated/app/brands")({
 function Page() {
   const { t } = useI18n();
   const can = useCan("catalog");
+  const canCreate = useCan("catalog", "create");
+  const canEdit = useCan("catalog", "edit");
   return (
     <EntityManager
       table="brands"
@@ -34,6 +36,8 @@ function Page() {
       sub="Samsung, Apple, Xiaomi…"
       orderBy="name"
       canWrite={can}
+      canCreate={canCreate}
+      canEdit={canEdit}
       canDelete={can}
       searchKeys={["name"]}
       fields={[{ key: "name", label: "Brand name", required: true, full: true }]}

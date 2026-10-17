@@ -109,6 +109,8 @@ export function EntityManager({
   columns,
   searchKeys,
   canWrite,
+  canCreate = canWrite,
+  canEdit = canWrite,
   canDelete,
   orderBy = "created_at",
   defaults = {},
@@ -122,6 +124,8 @@ export function EntityManager({
   columns: Column[];
   searchKeys: string[];
   canWrite: boolean;
+  canCreate?: boolean;
+  canEdit?: boolean;
   canDelete: boolean;
   orderBy?: string;
   defaults?: Row;
@@ -235,7 +239,7 @@ export function EntityManager({
         title={title}
         sub={sub}
         actions={
-          canWrite && (
+          canCreate && (
             <Button onClick={() => open(null)}>
               <Plus className="mr-1 h-4 w-4" />
               {t("add")}
@@ -272,7 +276,7 @@ export function EntityManager({
                       {c.label}
                     </TableHead>
                   ))}
-                  {(canWrite || canDelete || rowActions) && <TableHead className="w-24" />}
+                  {(canEdit || canDelete || rowActions) && <TableHead className="w-24" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -283,10 +287,10 @@ export function EntityManager({
                         {c.render ? c.render(r) : (r[c.key] ?? "—")}
                       </TableCell>
                     ))}
-                    {(canWrite || canDelete || rowActions) && (
+                    {(canEdit || canDelete || rowActions) && (
                       <TableCell className="whitespace-nowrap text-right">
                         {rowActions?.(r)}
-                        {canWrite && (
+                        {canEdit && (
                           <Button
                             size="icon"
                             variant="ghost"

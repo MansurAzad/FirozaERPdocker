@@ -84,7 +84,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add $configPath $cargoPath
           git commit -m "chore: release desktop v$nextVersion"
-          git tag -a "v$nextVersion" -m "Firoza ERP v$nextVersion"
+          git tag -a "v$nextVersion" -m "FIROZA ENTERPRISE v$nextVersion"
           git push origin HEAD:main
           git push origin "refs/tags/v$nextVersion"
           "tag_name=v$nextVersion" >> $env:GITHUB_OUTPUT
@@ -112,7 +112,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || steps.bump.outputs.tag_name }}
-          releaseName: Firoza ERP ${{ github.ref_type == 'tag' && github.ref_name || steps.bump.outputs.tag_name }}
+          releaseName: FIROZA ENTERPRISE ${{ github.ref_type == 'tag' && github.ref_name || steps.bump.outputs.tag_name }}
           releaseBody: Signed Windows installer and updater metadata. Installed desktop apps check for updates on startup and can install them automatically.
           releaseDraft: false
           prerelease: false

@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as ApiGuardianChatRouteImport } from './routes/api/guardian-chat'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppAccessControlRouteImport } from './routes/_authenticated/app/access-control'
 import { Route as AuthenticatedAppAccountingRouteImport } from './routes/_authenticated/app/accounting'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app/audit'
 import { Route as AuthenticatedAppBackupRouteImport } from './routes/_authenticated/app/backup'
@@ -129,6 +130,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppAccessControlRoute =
+  AuthenticatedAppAccessControlRouteImport.update({
+    id: '/access-control',
+    path: '/access-control',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppAccountingRoute =
   AuthenticatedAppAccountingRouteImport.update({
     id: '/accounting',
@@ -550,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/api/guardian-chat': typeof ApiGuardianChatRoute
+  '/app/access-control': typeof AuthenticatedAppAccessControlRoute
   '/app/accounting': typeof AuthenticatedAppAccountingRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/backup': typeof AuthenticatedAppBackupRoute
@@ -630,6 +638,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/api/guardian-chat': typeof ApiGuardianChatRoute
+  '/app/access-control': typeof AuthenticatedAppAccessControlRoute
   '/app/accounting': typeof AuthenticatedAppAccountingRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/backup': typeof AuthenticatedAppBackupRoute
@@ -713,6 +722,7 @@ export interface FileRoutesById {
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/api/guardian-chat': typeof ApiGuardianChatRoute
+  '/_authenticated/app/access-control': typeof AuthenticatedAppAccessControlRoute
   '/_authenticated/app/accounting': typeof AuthenticatedAppAccountingRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/backup': typeof AuthenticatedAppBackupRoute
@@ -796,6 +806,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/onboarding'
     | '/api/guardian-chat'
+    | '/app/access-control'
     | '/app/accounting'
     | '/app/audit'
     | '/app/backup'
@@ -876,6 +887,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/onboarding'
     | '/api/guardian-chat'
+    | '/app/access-control'
     | '/app/accounting'
     | '/app/audit'
     | '/app/backup'
@@ -958,6 +970,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app'
     | '/_authenticated/onboarding'
     | '/api/guardian-chat'
+    | '/_authenticated/app/access-control'
     | '/_authenticated/app/accounting'
     | '/_authenticated/app/audit'
     | '/_authenticated/app/backup'
@@ -1098,6 +1111,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/access-control': {
+      id: '/_authenticated/app/access-control'
+      path: '/access-control'
+      fullPath: '/app/access-control'
+      preLoaderRoute: typeof AuthenticatedAppAccessControlRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/_authenticated/app/accounting': {
@@ -1608,6 +1628,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppAccessControlRoute: typeof AuthenticatedAppAccessControlRoute
   AuthenticatedAppAccountingRoute: typeof AuthenticatedAppAccountingRoute
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppBackupRoute: typeof AuthenticatedAppBackupRoute
@@ -1683,6 +1704,7 @@ interface AuthenticatedAppRouteRouteChildren {
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppAccessControlRoute: AuthenticatedAppAccessControlRoute,
   AuthenticatedAppAccountingRoute: AuthenticatedAppAccountingRoute,
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppBackupRoute: AuthenticatedAppBackupRoute,
