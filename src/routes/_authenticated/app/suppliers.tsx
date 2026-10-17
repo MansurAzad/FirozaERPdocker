@@ -57,6 +57,8 @@ function Page() {
       canCreate={useCan("suppliers", "create")}
       canEdit={useCan("suppliers", "edit")}
       canDelete={useCan("deleteParty")}
+      canExport={useCan("suppliers", "export")}
+      canImport={useCan("suppliers", "create")}
       searchKeys={["name", "company", "mobile"]}
       fields={[
         { key: "name", label: "Name", required: true },

@@ -27,7 +27,15 @@ every business table: business_id NOT NULL + RLS: is_member(business_id)
 - Company identity exposes only the fields needed by the app shell. Detailed company-profile and Guardian runtime data is returned by permission-checked RPCs.
 - The access-control schema and policies are installed by `drizzle/migrations/0051_advanced_access_control.sql`. Existing non-owner members remain denied until an owner assigns a role or explicit grants. Apply subsequent corrections with their individual migration; `npm run db:apply-access-view-guard` applies `drizzle/migrations/0052_access_permission_view_prerequisite.sql`, which ensures every non-owner action permission also requires module view access.
 
-## 4. Module dependency map
+## 4. Excel data and responsive pages
+
+- The Products, Inventory, Customers, Dealers, and Suppliers pages expose tenant-scoped Excel exports and validated import templates, gated by each module's export/create permissions. Large lists are paged from Postgres before export so exports are not limited by the API's default row cap.
+- Contact and catalog imports create new records only; duplicate mobile numbers, SKUs, or product variants are skipped rather than overwriting existing records. Product imports resolve existing brand and category names and do not create stock.
+- Inventory imports are physical-count spreadsheets for one active branch. They create and post a recount through the stock-adjustment RPCs, preserving stock movement history and atomic database updates; they do not write stock rows directly.
+- Dealer payment imports require an explicit transaction reference, dealer, date, method, and active receiving account. Each receipt goes through `receive_customer_payment`, preserving the ledger and journal trail and enforcing the current customer due.
+- Page-level horizontal overflow is clipped; wide tables retain contained horizontal scrolling so they cannot shift the surrounding application layout.
+
+## 5. Module dependency map
 
 ```text
 Auth ─► Business ─► Branch/Warehouse ─► Users/Roles/Permissions
@@ -54,7 +62,7 @@ Auth ─► Business ─► Branch/Warehouse ─► Users/Roles/Permissions
         Reports ─► Analytics ─► AI assistant (future)
 ```
 
-## 5. Core ERD (Phase 1–3)
+## 6. Core ERD (Phase 1–3)
 
 ```text
 businesses(id, name, type[retail|wholesale|both], currency, logo_url)

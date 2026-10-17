@@ -27,6 +27,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ExcelDataTools,
+  type ExcelColumn,
+  type ExcelRecord,
+} from "@/components/erp/ExcelDataTools";
+import { hasAccess } from "@/lib/access-control";
+import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/app/dealers")({
   head: ({ matches }) => ({
@@ -60,7 +67,7 @@ const DEALER_STATUS = [
 ];
 
 function Dealers() {
-  const { business, role } = useBusiness();
+  const { business, role, access } = useBusiness();
   const qc = useQueryClient();
   const canEdit = role === "owner" || role === "manager" || role === "accountant";
   const canCollect = canEdit || role === "salesman" || role === "branch_manager";
@@ -76,29 +83,61 @@ function Dealers() {
   const balances = useQuery({
     queryKey: ["dealer-balances", business.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customer_balances")
-        .select("*")
-        .eq("business_id", business.id)
-        .in("type", [...DEALER_TYPES])
-        .order("name");
-      if (error) throw error;
-      return data;
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("customer_balances")
+          .select("*")
+          .eq("business_id", business.id)
+          .in("type", [...DEALER_TYPES])
+          .order("name")
+          .order("customer_id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
     },
   });
 
   const credits = useQuery({
     queryKey: ["dealer-credit", business.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("dealer_credit")
-        .select("*")
-        .eq("business_id", business.id);
-      if (error) throw error;
-      return data;
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("dealer_credit")
+          .select("*")
+          .eq("business_id", business.id)
+          .order("customer_id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
     },
   });
   const creditRows = credits.data;
+  const dealerCustomers = useQuery({
+    queryKey: ["dealer-customer-details", business.id],
+    enabled: hasAccess(access, "customers", "export"),
+    queryFn: async () => {
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("business_id", business.id)
+          .in("type", [...DEALER_TYPES])
+          .order("name")
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
+    },
+  });
 
   const dealerIds = useMemo(
     () => (balances.data ?? []).map((b) => b.customer_id).filter((x): x is string => !!x),
@@ -109,15 +148,20 @@ function Dealers() {
     queryKey: ["dealer-payments", business.id, dealerIds.length],
     enabled: dealerIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customer_payments")
-        .select("id, amount, method, txn_ref, paid_on, notes, customer_id")
-        .eq("business_id", business.id)
-        .in("customer_id", dealerIds)
-        .order("paid_on", { ascending: false })
-        .limit(300);
-      if (error) throw error;
-      return data;
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("customer_payments")
+          .select("id, amount, method, txn_ref, paid_on, notes, customer_id, account_id")
+          .eq("business_id", business.id)
+          .in("customer_id", dealerIds)
+          .order("paid_on", { ascending: false })
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
     },
   });
 
@@ -165,6 +209,234 @@ function Dealers() {
   const nameOf = (id: string | null) =>
     (balances.data ?? []).find((b) => b.customer_id === id)?.name ?? "—";
 
+  const dealerImportColumns: ExcelColumn[] = [
+    { key: "name", label: "Name", required: true },
+    { key: "mobile", label: "Mobile", required: true },
+    { key: "business_name", label: "Business name" },
+    { key: "alt_mobile", label: "Alternative mobile" },
+    { key: "type", label: "Dealer type", required: true },
+    { key: "credit_limit", label: "Credit limit", type: "number" },
+    { key: "payment_terms_days", label: "Payment terms (days)", type: "number" },
+    { key: "status", label: "Status" },
+    { key: "price_level", label: "Price level" },
+    { key: "dealer_discount", label: "Dealer discount", type: "number" },
+    { key: "dealer_level", label: "Dealer level" },
+    { key: "dealer_type", label: "Dealer category" },
+    { key: "address", label: "Address" },
+    { key: "nid", label: "NID" },
+    { key: "trade_license", label: "Trade license" },
+    { key: "notes", label: "Notes" },
+  ];
+  const dealerExportColumns: ExcelColumn[] = [
+    ...dealerImportColumns,
+    { key: "current_due", label: "Current due", type: "number" },
+    { key: "available", label: "Available credit", type: "number" },
+  ];
+  const dealerExportRows: ExcelRecord[] = (balances.data ?? []).map((row) => {
+    const credit = row.customer_id ? creditByCustomer.get(row.customer_id) : undefined;
+    const customer = (dealerCustomers.data ?? []).find((item) => item.id === row.customer_id);
+    const limit = Number(row.credit_limit ?? 0);
+    const due = Number(row.current_due ?? 0);
+    return {
+      name: row.name ?? "",
+      mobile: row.mobile ?? "",
+      business_name: row.business_name ?? "",
+      type: row.type ?? "",
+      credit_limit: limit,
+      payment_terms_days: row.payment_terms_days ?? 0,
+      status: credit?.status ?? "active",
+      price_level: customer?.price_level ?? "",
+      alt_mobile: customer?.alt_mobile ?? "",
+      dealer_discount: customer?.dealer_discount ?? 0,
+      dealer_level: customer?.dealer_level ?? "",
+      dealer_type: customer?.dealer_type ?? "",
+      address: customer?.address ?? "",
+      nid: customer?.nid ?? "",
+      trade_license: customer?.trade_license ?? "",
+      notes: customer?.notes ?? "",
+      current_due: due,
+      available: limit - due,
+    };
+  });
+  const paymentExportColumns: ExcelColumn[] = [
+    { key: "customer_mobile", label: "Dealer mobile", required: true },
+    { key: "paid_on", label: "Date" },
+    { key: "dealer", label: "Dealer" },
+    { key: "amount", label: "Amount", type: "number" },
+    { key: "method", label: "Method" },
+    { key: "account", label: "Account", required: true },
+    { key: "txn_ref", label: "Reference" },
+    { key: "notes", label: "Note" },
+  ];
+  const paymentExportRows: ExcelRecord[] = (payments.data ?? []).map((payment) => ({
+    customer_mobile:
+      (balances.data ?? []).find((item) => item.customer_id === payment.customer_id)?.mobile ?? "",
+    paid_on: payment.paid_on,
+    dealer: nameOf(payment.customer_id),
+    amount: payment.amount,
+    method: payment.method,
+    account: accounts.data?.find((item) => item.id === payment.account_id)?.name ?? "",
+    txn_ref: payment.txn_ref ?? "",
+    notes: payment.notes ?? "",
+  }));
+  const importDealers = async (records: ExcelRecord[]) => {
+    if (!navigator.onLine) throw new Error("Connect to the internet before importing Excel data.");
+    const existing: { mobile: string }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("mobile")
+        .eq("business_id", business.id)
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
+      if (error) throw error;
+      existing.push(...data);
+      if (data.length < 1000) break;
+    }
+    const knownMobiles = new Set(existing.map((item) => item.mobile.replace(/\D/g, "")));
+    const seenMobiles = new Set<string>();
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const [index, row] of records.entries()) {
+      const mobile = String(row.mobile).replace(/\D/g, "");
+      if (knownMobiles.has(mobile) || seenMobiles.has(mobile)) {
+        skipped += 1;
+        continue;
+      }
+      const type = String(row.type).trim();
+      const creditLimit = Number(row.credit_limit || 0);
+      const terms = Math.trunc(Number(row.payment_terms_days || 0));
+      const status =
+        String(row.status ?? "")
+          .trim()
+          .toLowerCase() || "active";
+      const priceLevel =
+        String(row.price_level ?? "")
+          .trim()
+          .toLowerCase() || "dealer";
+      try {
+        const { data: customer, error } = await supabase
+          .from("customers")
+          .insert({
+            business_id: business.id,
+            name: String(row.name).trim(),
+            mobile,
+            business_name: String(row.business_name ?? "").trim() || null,
+            alt_mobile: String(row.alt_mobile ?? "").trim() || null,
+            type: type as Database["public"]["Enums"]["customer_type"],
+            credit_limit: creditLimit,
+            payment_terms_days: terms,
+            price_level: priceLevel as Database["public"]["Enums"]["price_level"],
+            dealer_discount: Number(row.dealer_discount || 0),
+            dealer_level: String(row.dealer_level ?? "").trim() || null,
+            dealer_type: String(row.dealer_type ?? "").trim() || null,
+            address: String(row.address ?? "").trim() || null,
+            nid: String(row.nid ?? "").trim() || null,
+            trade_license: String(row.trade_license ?? "").trim() || null,
+            notes: String(row.notes ?? "").trim() || null,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        const { error: creditError } = await supabase.rpc("set_dealer_credit", {
+          _biz: business.id,
+          _customer: customer.id,
+          _credit_limit: creditLimit,
+          _payment_terms_days: terms,
+          _status: status,
+        });
+        if (creditError)
+          throw new Error(
+            `Dealer was created, but credit setup failed and must be completed from the Dealers page: ${friendlyError(creditError)}`,
+          );
+        knownMobiles.add(mobile);
+        imported += 1;
+      } catch (error) {
+        errors.push(`Row ${index + 2}: ${friendlyError(error)}`);
+      }
+      seenMobiles.add(mobile);
+    }
+    if (imported) {
+      await qc.invalidateQueries({ queryKey: ["dealer-balances", business.id] });
+      await qc.invalidateQueries({ queryKey: ["dealer-credit", business.id] });
+    }
+    return { imported, skipped, errors };
+  };
+  const paymentImportColumns: ExcelColumn[] = [
+    { key: "customer_mobile", label: "Dealer mobile", required: true },
+    { key: "paid_on", label: "Date", required: true },
+    { key: "amount", label: "Amount", required: true, type: "number" },
+    { key: "method", label: "Method", required: true },
+    { key: "account", label: "Account", required: true },
+    { key: "txn_ref", label: "Reference", required: true },
+    { key: "notes", label: "Note" },
+  ];
+  const importDealerPayments = async (records: ExcelRecord[]) => {
+    if (!navigator.onLine) throw new Error("Connect to the internet before importing Excel data.");
+    const knownReferences = new Set(
+      (payments.data ?? [])
+        .map((payment) => payment.txn_ref?.trim().toLowerCase())
+        .filter((value): value is string => !!value),
+    );
+    const fileReferences = new Set<string>();
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const [index, row] of records.entries()) {
+      const reference = String(row.txn_ref).trim();
+      const referenceKey = reference.toLowerCase();
+      if (knownReferences.has(referenceKey) || fileReferences.has(referenceKey)) {
+        skipped += 1;
+        continue;
+      }
+      const mobile = String(row.customer_mobile).replace(/\D/g, "");
+      const dealer = (balances.data ?? []).find(
+        (item) => item.mobile?.replace(/\D/g, "") === mobile,
+      );
+      const matchingAccounts = (accounts.data ?? []).filter(
+        (item) =>
+          item.status === "active" &&
+          (item.name ?? "").trim().toLowerCase() === String(row.account).trim().toLowerCase(),
+      );
+      if (!dealer?.customer_id || matchingAccounts.length !== 1) {
+        errors.push(`Row ${index + 2}: Dealer or unique active account no longer exists.`);
+        continue;
+      }
+      try {
+        const { error } = await supabase.rpc("receive_customer_payment", {
+          _biz: business.id,
+          _customer: dealer.customer_id,
+          _account: matchingAccounts[0]!.id!,
+          _amount: Number(row.amount),
+          _date: String(row.paid_on),
+          _method: String(row.method) as Method,
+          _txn_ref: reference,
+          _note: String(row.notes ?? ""),
+        });
+        if (error) throw error;
+        knownReferences.add(referenceKey);
+        imported += 1;
+      } catch (error) {
+        errors.push(`Row ${index + 2}: ${friendlyError(error)}`);
+      }
+      fileReferences.add(referenceKey);
+    }
+    if (imported) {
+      await qc.invalidateQueries({ queryKey: ["dealer-payments", business.id] });
+      await qc.invalidateQueries({ queryKey: ["dealer-balances", business.id] });
+    }
+    return { imported, skipped, errors };
+  };
+  const canImportDealers =
+    ["owner", "manager", "accountant"].includes(role) &&
+    hasAccess(access, "dealers", "create") &&
+    hasAccess(access, "customers", "create");
+  const canImportPayments =
+    canImportDealers &&
+    hasAccess(access, "due_collection", "create") &&
+    hasAccess(access, "cash_bank", "view");
+
   const saveCredit = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("set_dealer_credit", {
@@ -211,6 +483,108 @@ function Dealers() {
       <PageHeader
         title="Dealers & sub-dealers"
         sub="Credit limits, dues and payments for wholesale dealers and sub-dealers."
+        actions={
+          <>
+            <ExcelDataTools
+              canExport={hasAccess(access, "dealers", "export") && !!balances.data}
+              canImport={canImportDealers && !!balances.data && !!credits.data}
+              importLabel="Import dealers"
+              exports={[
+                {
+                  label: "Export dealers",
+                  fileName: "dealers",
+                  columns: dealerExportColumns,
+                  rows: dealerExportRows,
+                },
+              ]}
+              importConfig={{
+                title: "dealers",
+                fileName: "dealers",
+                description:
+                  "Adds new dealer customers and credit settings. Existing mobile numbers and duplicates are skipped.",
+                columns: dealerImportColumns,
+                validateRow: (row) => {
+                  if (!/^(01[3-9]\d{8}|\d{10})$/.test(String(row.mobile).replace(/\D/g, "")))
+                    return "Enter a Bangladesh mobile number (01XXXXXXXXX).";
+                  if (!DEALER_TYPES.includes(String(row.type) as (typeof DEALER_TYPES)[number]))
+                    return "Dealer type must be wholesale_dealer, sub_dealer, or dealer.";
+                  if (Number(row.credit_limit || 0) < 0) return "Credit limit cannot be negative.";
+                  if (
+                    !Number.isInteger(Number(row.payment_terms_days || 0)) ||
+                    Number(row.payment_terms_days || 0) < 0
+                  )
+                    return "Payment terms must be a whole number of days.";
+                  if (
+                    !DEALER_STATUS.some((option) => option.value === String(row.status || "active"))
+                  )
+                    return "Status must be active, blocked, or suspended.";
+                  if (
+                    !["retail", "wholesale", "dealer", "special"].includes(
+                      String(row.price_level || "dealer"),
+                    )
+                  )
+                    return "Price level must be retail, wholesale, dealer, or special.";
+                  return null;
+                },
+                onImport: importDealers,
+              }}
+            />
+            <ExcelDataTools
+              canExport={
+                hasAccess(access, "dealers", "export") &&
+                hasAccess(access, "cash_bank", "view") &&
+                !!payments.data
+              }
+              canImport={canImportPayments && !!balances.data && !!payments.data && !!accounts.data}
+              importLabel="Import payments"
+              exports={[
+                {
+                  label: "Export payment history",
+                  fileName: "dealer-payment-history",
+                  columns: paymentExportColumns,
+                  rows: paymentExportRows,
+                },
+              ]}
+              importConfig={{
+                title: "dealer payments",
+                fileName: "dealer-payments",
+                description:
+                  "Each row creates a real receipt and ledger posting and cannot exceed the dealer's current due. A unique transaction reference is required to avoid duplicate imports.",
+                columns: paymentImportColumns,
+                validateRow: (row) => {
+                  const mobile = String(row.customer_mobile).replace(/\D/g, "");
+                  if (!/^(01[3-9]\d{8}|\d{10})$/.test(mobile))
+                    return "Enter a Bangladesh dealer mobile number.";
+                  if (
+                    !(balances.data ?? []).some(
+                      (item) => item.mobile?.replace(/\D/g, "") === mobile,
+                    )
+                  )
+                    return "Dealer mobile does not match a dealer in this business.";
+                  const date = String(row.paid_on);
+                  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))
+                    return "Date must use YYYY-MM-DD.";
+                  if (Number(row.amount) <= 0) return "Payment amount must be greater than zero.";
+                  if (!METHODS.includes(String(row.method) as Method))
+                    return `Method must be one of: ${METHODS.join(", ")}.`;
+                  if (!String(row.txn_ref).trim())
+                    return "A unique transaction reference is required.";
+                  if (
+                    !(accounts.data ?? []).some(
+                      (item) =>
+                        item.status === "active" &&
+                        (item.name ?? "").trim().toLowerCase() ===
+                          String(row.account).trim().toLowerCase(),
+                    )
+                  )
+                    return "Account must match an active account.";
+                  return null;
+                },
+                onImport: importDealerPayments,
+              }}
+            />
+          </>
+        }
       />
 
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">

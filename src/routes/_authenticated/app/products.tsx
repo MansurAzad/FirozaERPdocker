@@ -29,6 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ExcelDataTools,
+  type ExcelColumn,
+  type ExcelRecord,
+} from "@/components/erp/ExcelDataTools";
+import { hasAccess } from "@/lib/access-control";
 
 export const Route = createFileRoute("/_authenticated/app/products")({
   head: ({ matches }) => ({
@@ -76,7 +82,7 @@ const blank = {
 };
 
 function ProductsPage() {
-  const { business } = useBusiness();
+  const { business, access } = useBusiness();
   const { t } = useI18n();
   const can = useCan("catalog");
   const qc = useQueryClient();
@@ -108,15 +114,21 @@ function ProductsPage() {
   const list = useQuery({
     queryKey: ["product_variants", business.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_variants")
-        .select(
-          "*, products!inner(model, brand_id, category_id, brands(name), categories(name, is_serialized))",
-        )
-        .eq("business_id", business.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("product_variants")
+          .select(
+            "*, products!inner(model, brand_id, category_id, brands(name), categories(name, is_serialized))",
+          )
+          .eq("business_id", business.id)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
     },
   });
 
@@ -218,6 +230,198 @@ function ProductsPage() {
     onError: (e) => toast.error(friendlyError(e)),
   });
 
+  const excelColumns: ExcelColumn[] = [
+    { key: "brand", label: "Brand", required: true },
+    { key: "category", label: "Category", required: true },
+    { key: "model", label: "Model", required: true },
+    { key: "sku", label: "SKU" },
+    { key: "ram", label: "RAM" },
+    { key: "storage", label: "Storage" },
+    { key: "color", label: "Color" },
+    { key: "purchase_price", label: "Purchase price", type: "number" },
+    { key: "wholesale_price", label: "Wholesale price", type: "number" },
+    { key: "dealer_price", label: "Dealer price", type: "number" },
+    { key: "retail_price", label: "Retail price", type: "number" },
+    { key: "min_price", label: "Minimum selling price", type: "number" },
+    { key: "reorder_level", label: "Reorder level", type: "number" },
+    { key: "warranty_months", label: "Warranty months", type: "number" },
+    { key: "status", label: "Status" },
+  ];
+  const exportRows: ExcelRecord[] = (list.data ?? []).map((row) => ({
+    brand: row.products.brands?.name ?? "",
+    category: row.products.categories?.name ?? "",
+    model: row.products.model,
+    sku: row.sku,
+    ram: row.ram ?? "",
+    storage: row.storage ?? "",
+    color: row.color ?? "",
+    purchase_price: row.purchase_price,
+    wholesale_price: row.wholesale_price,
+    dealer_price: row.dealer_price,
+    retail_price: row.retail_price,
+    min_price: row.min_price,
+    reorder_level: row.reorder_level,
+    warranty_months: row.warranty_months,
+    status: row.status,
+  }));
+  const importProducts = async (records: ExcelRecord[]) => {
+    if (!navigator.onLine) throw new Error("Connect to the internet before importing Excel data.");
+    const productRows = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,brand_id,category_id,model")
+        .eq("business_id", business.id)
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
+      if (error) throw error;
+      productRows.push(...data);
+      if (data.length < 1000) break;
+    }
+    const productIds = new Map(
+      productRows.map((row) => [
+        `${row.brand_id}:${row.category_id}:${row.model.trim().toLowerCase()}`,
+        row.id,
+      ]),
+    );
+    const skuKeys = new Set((list.data ?? []).map((row) => row.sku.trim().toLowerCase()));
+    const variantKeys = new Set(
+      (list.data ?? []).map((row) =>
+        [
+          row.products.brand_id,
+          row.products.category_id,
+          row.products.model.trim().toLowerCase(),
+          row.ram ?? "",
+          row.storage ?? "",
+          row.color ?? "",
+        ]
+          .join(":")
+          .toLowerCase(),
+      ),
+    );
+    const seenSkus = new Set<string>();
+    const seenVariants = new Set<string>();
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const [index, row] of records.entries()) {
+      const brands = (lookups.data?.brands ?? []).filter(
+        (item) => item.name.trim().toLowerCase() === String(row.brand).trim().toLowerCase(),
+      );
+      const categories = (lookups.data?.categories ?? []).filter(
+        (item) => item.name.trim().toLowerCase() === String(row.category).trim().toLowerCase(),
+      );
+      if (brands.length !== 1 || categories.length !== 1) {
+        errors.push(`Row ${index + 2}: Brand or category must match one unique record.`);
+        continue;
+      }
+      const brand = brands[0]!;
+      const category = categories[0]!;
+      const model = String(row.model).trim();
+      const sku = String(row.sku ?? "")
+        .trim()
+        .toUpperCase();
+      const skuKey = sku.toLowerCase();
+      const variantKey = [
+        brand.id,
+        category.id,
+        model.toLowerCase(),
+        String(row.ram ?? "")
+          .trim()
+          .toLowerCase(),
+        String(row.storage ?? "")
+          .trim()
+          .toLowerCase(),
+        String(row.color ?? "")
+          .trim()
+          .toLowerCase(),
+      ].join(":");
+      if (
+        (skuKey && (skuKeys.has(skuKey) || seenSkus.has(skuKey))) ||
+        variantKeys.has(variantKey) ||
+        seenVariants.has(variantKey)
+      ) {
+        skipped += 1;
+        continue;
+      }
+      const statusValue =
+        String(row.status ?? "")
+          .trim()
+          .toLowerCase() || "active";
+      if (statusValue !== "active" && statusValue !== "inactive") {
+        errors.push(`Row ${index + 2}: Status must be active or inactive.`);
+        continue;
+      }
+      const modelKey = `${brand.id}:${category.id}:${model.toLowerCase()}`;
+      let productId = productIds.get(modelKey);
+      let createdProduct = false;
+      try {
+        if (!productId) {
+          const { data: product, error } = await supabase
+            .from("products")
+            .insert({
+              business_id: business.id,
+              brand_id: brand.id,
+              category_id: category.id,
+              model,
+            })
+            .select("id")
+            .single();
+          if (error) throw error;
+          productId = product.id;
+          productIds.set(modelKey, productId);
+          createdProduct = true;
+        }
+        const { data: variant, error } = await supabase
+          .from("product_variants")
+          .insert({
+            business_id: business.id,
+            product_id: productId,
+            sku,
+            ram: String(row.ram ?? "").trim() || null,
+            storage: String(row.storage ?? "").trim() || null,
+            color: String(row.color ?? "").trim() || null,
+            purchase_price: Number(row.purchase_price || 0),
+            wholesale_price: Number(row.wholesale_price || 0),
+            dealer_price: Number(row.dealer_price || 0),
+            retail_price: Number(row.retail_price || 0),
+            min_price: Number(row.min_price || 0),
+            reorder_level: Math.trunc(Number(row.reorder_level || 0)),
+            warranty_months: Math.trunc(Number(row.warranty_months || 0)),
+            status: statusValue,
+          })
+          .select("id,sku")
+          .single();
+        if (error) throw error;
+        if (variant.sku) {
+          skuKeys.add(variant.sku.toLowerCase());
+          seenSkus.add(variant.sku.toLowerCase());
+        }
+        variantKeys.add(variantKey);
+        seenVariants.add(variantKey);
+        imported += 1;
+      } catch (error) {
+        if (createdProduct && productId) {
+          const { error: cleanupError } = await supabase
+            .from("products")
+            .delete()
+            .eq("business_id", business.id)
+            .eq("id", productId);
+          if (cleanupError) {
+            errors.push(
+              `Row ${index + 2}: ${friendlyError(error)} Also failed to remove the unused product model: ${friendlyError(cleanupError)}`,
+            );
+            continue;
+          }
+          productIds.delete(modelKey);
+        }
+        errors.push(`Row ${index + 2}: ${friendlyError(error)}`);
+      }
+    }
+    if (imported) await qc.invalidateQueries({ queryKey: ["product_variants", business.id] });
+    return { imported, skipped, errors };
+  };
+
   const sel = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
   const selectedCategory = lookups.data?.categories.find((c) => c.id === f.category_id);
   const input = (k: keyof typeof blank, l: string, type = "text") => (
@@ -233,20 +437,81 @@ function ProductsPage() {
         title={t("products")}
         sub="Brand → Model → Variant. Prices per level."
         actions={
-          can && (
-            <Button
-              onClick={() => {
-                setEditId(null);
-                setF(blank);
-                setStatus("active");
-                setOpen(true);
+          <>
+            <ExcelDataTools
+              canExport={hasAccess(access, "products", "export") && !!list.data}
+              canImport={hasAccess(access, "products", "create") && !!list.data && !!lookups.data}
+              exports={[
+                {
+                  label: "Export Excel",
+                  fileName: "products",
+                  columns: excelColumns,
+                  rows: exportRows,
+                },
+              ]}
+              importConfig={{
+                title: "products",
+                fileName: "products",
+                description:
+                  "Adds new product variants. Brand and category names must already exist; duplicate SKUs or variants are skipped.",
+                columns: excelColumns,
+                validateRow: (row) => {
+                  if (
+                    lookups.data?.brands.filter(
+                      (item) =>
+                        item.name.trim().toLowerCase() === String(row.brand).trim().toLowerCase(),
+                    ).length !== 1
+                  )
+                    return "Brand must match one unique existing brand.";
+                  if (
+                    lookups.data?.categories.filter(
+                      (item) =>
+                        item.name.trim().toLowerCase() ===
+                        String(row.category).trim().toLowerCase(),
+                    ).length !== 1
+                  )
+                    return "Category must match one unique existing category.";
+                  for (const column of excelColumns.filter((item) => item.type === "number")) {
+                    if (Number(row[column.key] || 0) < 0)
+                      return `${column.label} cannot be negative.`;
+                  }
+                  for (const key of ["reorder_level", "warranty_months"]) {
+                    if (!Number.isInteger(Number(row[key] || 0)))
+                      return `${key === "reorder_level" ? "Reorder level" : "Warranty months"} must be a whole number.`;
+                  }
+                  if (
+                    Number(row.min_price || 0) > Number(row.retail_price || 0) &&
+                    Number(row.retail_price || 0) > 0
+                  )
+                    return "Minimum selling price cannot exceed retail price.";
+                  if (
+                    !["", "active", "inactive"].includes(
+                      String(row.status ?? "")
+                        .trim()
+                        .toLowerCase(),
+                    )
+                  )
+                    return "Status must be active or inactive.";
+                  return null;
+                },
+                onImport: importProducts,
               }}
-              disabled={!lookups.data?.brands.length}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              {t("add")}
-            </Button>
-          )
+            />
+            {can && (
+              <Button
+                onClick={() => {
+                  setEditId(null);
+                  setF(blank);
+                  setStatus("active");
+                  setOpen(true);
+                }}
+                disabled={!lookups.data?.brands.length}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {t("add")}
+              </Button>
+            )}
+          </>
         }
       />
       {lookups.data && !lookups.data.brands.length && (

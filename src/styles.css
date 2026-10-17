@@ -145,7 +145,12 @@
     border-color: var(--color-border);
   }
 
+  html,
   body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);

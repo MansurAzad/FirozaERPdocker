@@ -27,6 +27,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ExcelDataTools,
+  type ExcelColumn,
+  type ExcelRecord,
+} from "@/components/erp/ExcelDataTools";
 
 type EntityTable = keyof Database["public"]["Tables"];
 type EntityValue = string | number | boolean | null | undefined;
@@ -56,9 +61,10 @@ type EntityQuery = PromiseLike<EntityResult> & {
   select(columns: string): EntityQuery;
   eq(column: string, value: EntityValue): EntityQuery;
   order(column: string, options: { ascending: boolean }): EntityQuery;
-  insert(values: Row): EntityQuery;
+  insert(values: Row | Row[]): EntityQuery;
   update(values: Row): EntityQuery;
   delete(): EntityQuery;
+  range(from: number, to: number): EntityQuery;
 };
 const entityClient = supabase as unknown as { from(table: EntityTable): EntityQuery };
 const formValue = (value: EntityValue) =>
@@ -116,6 +122,8 @@ export function EntityManager({
   defaults = {},
   rowActions,
   initialSearch = "",
+  canExport = false,
+  canImport = false,
 }: {
   table: EntityTable;
   title: string;
@@ -131,6 +139,8 @@ export function EntityManager({
   defaults?: Row;
   rowActions?: (r: Row) => ReactNode;
   initialSearch?: string;
+  canExport?: boolean;
+  canImport?: boolean;
 }) {
   const { business } = useBusiness();
   const { t } = useI18n();
@@ -143,13 +153,20 @@ export function EntityManager({
   const { data, isLoading, error } = useQuery({
     queryKey: key,
     queryFn: async () => {
-      const { data, error } = await entityClient
-        .from(table)
-        .select("*")
-        .eq("business_id", business.id)
-        .order(orderBy, { ascending: orderBy !== "created_at" });
-      if (error) throw error;
-      return data as Row[];
+      const all: Row[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await entityClient
+          .from(table)
+          .select("*")
+          .eq("business_id", business.id)
+          .order(orderBy, { ascending: orderBy !== "created_at" })
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        const page = data as Row[];
+        all.push(...page);
+        if (page.length < 1000) return all;
+      }
     },
   });
 
@@ -233,18 +250,115 @@ export function EntityManager({
     save.mutate(form);
   }
 
+  const excelColumns: ExcelColumn[] = fields.map((field) => ({
+    key: field.key,
+    label: field.label.replace(/\s*\*$/, ""),
+    ...(field.required ? { required: true } : {}),
+    type: field.type === "number" ? "number" : "text",
+  }));
+  const exportRows: ExcelRecord[] = (data ?? []).map((row) =>
+    Object.fromEntries(fields.map((field) => [field.key, row[field.key] ?? ""])),
+  );
+  const importRecords = async (records: ExcelRecord[]) => {
+    if (!navigator.onLine) throw new Error("Connect to the internet before importing Excel data.");
+    const existingKeys = new Set(
+      (data ?? [])
+        .map((row) => (row.mobile ? String(row.mobile).replace(/\D/g, "") : ""))
+        .filter(Boolean),
+    );
+    const importKeys = new Set<string>();
+    const payload: Row[] = [];
+    let skipped = 0;
+    for (const [index, record] of records.entries()) {
+      const clean: Row = {};
+      for (const field of fields) {
+        const value = record[field.key];
+        const text = String(value ?? "").trim();
+        if (field.required && !text)
+          throw new Error(`Row ${index + 2}: ${field.label} is required.`);
+        if (text && field.pattern && !field.pattern.test(text))
+          throw new Error(`Row ${index + 2}: ${field.patternMsg ?? `Invalid ${field.label}.`}`);
+        if (
+          text &&
+          field.type === "select" &&
+          !field.options?.some((option) => option.value === text)
+        )
+          throw new Error(
+            `Row ${index + 2}: ${field.label} must match one of the values in the template.`,
+          );
+        clean[field.key] =
+          field.type === "number"
+            ? Number(value || 0)
+            : field.type === "select"
+              ? text || defaults[field.key] || field.options?.[0]?.value || null
+              : text || null;
+      }
+      const mobile = clean.mobile == null ? "" : String(clean.mobile).replace(/\D/g, "");
+      if (mobile && (existingKeys.has(mobile) || importKeys.has(mobile))) {
+        skipped += 1;
+        continue;
+      }
+      if (mobile) importKeys.add(mobile);
+      payload.push(clean);
+    }
+    if (payload.length) {
+      const { error } = await entityClient
+        .from(table)
+        .insert(payload.map((row) => ({ ...row, business_id: business.id })));
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: key });
+    }
+    return { imported: payload.length, skipped };
+  };
+
   return (
     <div>
       <PageHeader
         title={title}
         sub={sub}
         actions={
-          canCreate && (
-            <Button onClick={() => open(null)}>
-              <Plus className="mr-1 h-4 w-4" />
-              {t("add")}
-            </Button>
-          )
+          <>
+            <ExcelDataTools
+              canExport={canExport && !isLoading && !!data}
+              canImport={canImport && !isLoading && !!data}
+              exports={[
+                {
+                  label: "Export Excel",
+                  fileName: table,
+                  columns: excelColumns,
+                  rows: exportRows,
+                },
+              ]}
+              importConfig={{
+                title,
+                fileName: table,
+                description:
+                  "Adds new records only. Existing mobile numbers and duplicates in the file are skipped; existing contacts are not overwritten.",
+                columns: excelColumns,
+                validateRow: (record) => {
+                  for (const field of fields) {
+                    const value = String(record[field.key] ?? "").trim();
+                    if (field.pattern && value && !field.pattern.test(value))
+                      return field.patternMsg ?? `Invalid ${field.label}.`;
+                    if (
+                      field.type === "select" &&
+                      value &&
+                      !field.options?.some((option) => option.value === value)
+                    )
+                      return `${field.label} must match one of the values in the template.`;
+                  }
+                  return null;
+                },
+                onImport: importRecords,
+              }}
+            />
+            {canCreate && (
+              <Button onClick={() => open(null)}>
+                <Plus className="mr-1 h-4 w-4" />
+                {t("add")}
+              </Button>
+            )}
+          </>
         }
       />
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">

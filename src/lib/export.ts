@@ -52,6 +52,23 @@ export async function makeXlsx(s: Sheet): Promise<Blob> {
   });
 }
 
+export async function makeDataXlsx(
+  headers: string[],
+  rows: (string | number | boolean | null | undefined)[][],
+): Promise<Blob> {
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws["!cols"] = headers.map((header) => ({
+    wch: Math.min(36, Math.max(14, header.length + 2)),
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  return new Blob([out], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
 export function download(blob: Blob, name: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
