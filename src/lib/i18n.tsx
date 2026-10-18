@@ -52,6 +52,7 @@ export const dict = {
   orders: { en: "Orders", bn: "অর্ডার তালিকা" },
   courier: { en: "Courier", bn: "কুরিয়ার" },
   emi: { en: "EMI / Installments", bn: "কিস্তি (EMI)" },
+  partnerFinance: { en: "Partner Finance", bn: "পার্টনার ফাইন্যান্স" },
   emiNew: { en: "New Installment Sale", bn: "নতুন কিস্তি বিক্রি" },
   emiContracts: { en: "EMI Contracts", bn: "কিস্তি চুক্তি" },
   purchaseOrders: { en: "Purchase Orders", bn: "ক্রয় অর্ডার" },

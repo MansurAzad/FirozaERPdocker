@@ -34,7 +34,7 @@ function Invoice() {
   const { id } = Route.useParams();
   const { business, role } = useBusiness();
   const { data, error, isLoading } = useQuery({
-    queryKey: ["sale", id],
+    queryKey: ["sale", business.id, id],
     queryFn: async () => {
       const [s, items, pays, rets] = await Promise.all([
         supabase
@@ -48,11 +48,17 @@ function Invoice() {
           .select(
             "*, product_variants(sku,ram,storage,color,products(model,brands(name))), product_imeis!sale_items_imei_id_fkey(imei1,imei2)",
           )
+          .eq("business_id", business.id)
           .eq("sale_id", id),
-        supabase.from("customer_payments").select("amount,method,txn_ref").eq("sale_id", id),
+        supabase
+          .from("customer_payments")
+          .select("amount,method,txn_ref")
+          .eq("business_id", business.id)
+          .eq("sale_id", id),
         supabase
           .from("sales_returns")
           .select("id,return_no,return_date,total,refund,sales_return_items(sale_item_id,qty)")
+          .eq("business_id", business.id)
           .eq("sale_id", id)
           .order("created_at"),
       ]);
@@ -77,9 +83,11 @@ function Invoice() {
     imeiLabel: it.product_imeis?.imei1 ?? null,
   }));
   const canReturn =
-    ["owner", "manager", "branch_manager", "accountant"].includes(role) && s.status === "posted";
+    !s.partner_financed &&
+    ["owner", "manager", "branch_manager", "accountant"].includes(role) &&
+    s.status === "posted";
   const profit = Number(s.total) - Number(s.tax) - Number(s.cogs);
-  const showProfit = ["owner", "manager", "accountant"].includes(role);
+  const showProfit = !s.partner_financed && ["owner", "manager", "accountant"].includes(role);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -108,6 +116,15 @@ function Invoice() {
         </div>
       </div>
       <div className="rounded-lg border bg-card p-8 print:border-0 print:p-0">
+        {s.partner_financed && (
+          <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+            Partner-financed sale. Customer down payment and provider settlement are tracked in{" "}
+            <Link to="/app/partner-finance" className="font-medium text-primary underline">
+              Partner Finance
+            </Link>
+            ; no customer payment or due is posted here.
+          </div>
+        )}
         <div className="flex flex-wrap justify-between gap-4 border-b pb-4">
           <div>
             <div className="font-display text-xl font-bold">{business.name}</div>
@@ -202,14 +219,18 @@ function Invoice() {
             <dt>Total</dt>
             <dd>{bdt(s.total)}</dd>
           </div>
-          <div className="flex justify-between">
-            <dt>Paid</dt>
-            <dd>{bdt(s.paid)}</dd>
-          </div>
-          <div className="flex justify-between font-semibold">
-            <dt>Due</dt>
-            <dd>{bdt(s.due)}</dd>
-          </div>
+          {!s.partner_financed && (
+            <>
+              <div className="flex justify-between">
+                <dt>Paid</dt>
+                <dd>{bdt(s.paid)}</dd>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <dt>Due</dt>
+                <dd>{bdt(s.due)}</dd>
+              </div>
+            </>
+          )}
         </dl>
         {pays.length > 0 && (
           <p className="mt-3 text-xs text-muted-foreground">
@@ -239,8 +260,10 @@ function Invoice() {
           </div>
         )}
         <div className="mt-8 border-t pt-3 text-xs text-muted-foreground">
-          Goods once sold are subject to the shop's return policy. Warranty is valid against IMEI
-          with this invoice. ধন্যবাদ!
+          {s.partner_financed
+            ? "Returns for partner-financed sales must be handled outside the standard sales-return workflow."
+            : "Goods once sold are subject to the shop's return policy."}{" "}
+          Warranty is valid against IMEI with this invoice. ধন্যবাদ!
         </div>
       </div>
     </div>

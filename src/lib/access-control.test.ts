@@ -7,6 +7,7 @@ describe("page access mapping", () => {
     expect(moduleForPath("/app/emi/plans/new/")).toBe("emi");
     expect(moduleForPath("/app/guardian-owner")).toBe("guardian");
     expect(moduleForPath("/app/money")).toBe("cash_bank");
+    expect(moduleForPath("/app/partner-finance/settlements")).toBe("sales");
     expect(moduleForPath("/app/")).toBe("dashboard");
   });
 

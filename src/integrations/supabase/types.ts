@@ -3831,6 +3831,7 @@ export type Database = {
           invoice_no: string;
           notes: string | null;
           paid: number;
+          partner_financed: boolean;
           price_level: Database["public"]["Enums"]["price_level"];
           sale_date: string;
           status: string;
@@ -3852,6 +3853,7 @@ export type Database = {
           invoice_no: string;
           notes?: string | null;
           paid?: number;
+          partner_financed?: boolean;
           price_level?: Database["public"]["Enums"]["price_level"];
           sale_date?: string;
           status?: string;
@@ -3873,6 +3875,7 @@ export type Database = {
           invoice_no?: string;
           notes?: string | null;
           paid?: number;
+          partner_financed?: boolean;
           price_level?: Database["public"]["Enums"]["price_level"];
           sale_date?: string;
           status?: string;

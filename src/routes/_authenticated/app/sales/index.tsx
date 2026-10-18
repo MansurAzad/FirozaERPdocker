@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
@@ -50,7 +51,7 @@ function SalesList() {
       const { data, error } = await supabase
         .from("sales")
         .select(
-          "id,invoice_no,sale_date,total,paid,due,cogs,discount,tax,status,customers(name,mobile),branches(name)",
+          "id,invoice_no,sale_date,total,paid,due,cogs,discount,tax,status,partner_financed,customers(name,mobile),branches(name)",
         )
         .eq("business_id", business.id)
         .gte("sale_date", from)
@@ -76,7 +77,8 @@ function SalesList() {
     (a, r) => ({
       total: a.total + Number(r.total),
       due: a.due + Number(r.due),
-      profit: a.profit + Number(r.total) - Number(r.tax) - Number(r.cogs),
+      profit:
+        a.profit + (r.partner_financed ? 0 : Number(r.total) - Number(r.tax) - Number(r.cogs)),
     }),
     { total: 0, due: 0, profit: 0 },
   );
@@ -85,7 +87,7 @@ function SalesList() {
     <div>
       <PageHeader
         title="Sales History"
-        sub={`${rows.length} invoices · ${bdt(t.total)}${showProfit ? ` · gross profit ${bdt(t.profit)}` : ""} · due ${bdt(t.due)}`}
+        sub={`${rows.length} invoices · ${bdt(t.total)}${showProfit ? ` · gross profit excluding partner-financed sales ${bdt(t.profit)}` : ""} · due ${bdt(t.due)}`}
         actions={
           <Button asChild>
             <Link to="/app/sales/new">
@@ -140,25 +142,34 @@ function SalesList() {
                       >
                         {r.invoice_no}
                       </Link>
+                      {r.partner_financed && (
+                        <Badge className="ml-2" variant="outline">
+                          Partner financed
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="num">{r.sale_date}</TableCell>
                     <TableCell>{r.customers?.name ?? "Walk-in"}</TableCell>
                     <TableCell>{r.branches?.name}</TableCell>
                     <TableCell className="num text-right">{bdt(r.total)}</TableCell>
-                    <TableCell className="num text-right">{bdt(r.paid)}</TableCell>
+                    <TableCell className="num text-right">
+                      {r.partner_financed ? "—" : bdt(r.paid)}
+                    </TableCell>
                     <TableCell
                       className={
                         "num text-right " +
-                        (Number(r.due) > 0
+                        (Number(r.due) > 0 && !r.partner_financed
                           ? "font-semibold text-destructive"
                           : "text-muted-foreground")
                       }
                     >
-                      {bdt(r.due)}
+                      {r.partner_financed ? "—" : bdt(r.due)}
                     </TableCell>
                     {showProfit && (
                       <TableCell className="num text-right">
-                        {bdt(Number(r.total) - Number(r.tax) - Number(r.cogs))}
+                        {r.partner_financed
+                          ? "—"
+                          : bdt(Number(r.total) - Number(r.tax) - Number(r.cogs))}
                       </TableCell>
                     )}
                   </TableRow>

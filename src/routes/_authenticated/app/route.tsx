@@ -140,6 +140,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
       { to: "/app/orders", icon: CalendarCheck, k: "orders" },
       { to: "/app/courier", icon: Truck, k: "courier" },
       { to: "/app/emi", icon: Receipt, k: "emi" },
+      { to: "/app/partner-finance", icon: Handshake, k: "partnerFinance" },
       { to: "/app/due-collection", icon: HandCoins, k: "dueCollection" },
     ],
   },

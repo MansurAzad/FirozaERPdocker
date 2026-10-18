@@ -65,6 +65,7 @@ import { Route as AuthenticatedAppEmiNewRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppOrdersIndexRouteImport } from './routes/_authenticated/app/orders/index'
 import { Route as AuthenticatedAppOrdersIdRouteImport } from './routes/_authenticated/app/orders/$id'
 import { Route as AuthenticatedAppOrdersNewRouteImport } from './routes/_authenticated/app/orders/new'
+import { Route as AuthenticatedAppPartnerFinanceIndexRouteImport } from './routes/_authenticated/app/partner-finance/index'
 import { Route as AuthenticatedAppPurchaseOrdersIndexRouteImport } from './routes/_authenticated/app/purchase-orders/index'
 import { Route as AuthenticatedAppPurchaseOrdersIdRouteImport } from './routes/_authenticated/app/purchase-orders/$id'
 import { Route as AuthenticatedAppPurchaseOrdersNewRouteImport } from './routes/_authenticated/app/purchase-orders/new'
@@ -400,6 +401,12 @@ const AuthenticatedAppOrdersNewRoute =
     path: '/orders/new',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppPartnerFinanceIndexRoute =
+  AuthenticatedAppPartnerFinanceIndexRouteImport.update({
+    id: '/partner-finance/',
+    path: '/partner-finance/',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppPurchaseOrdersIndexRoute =
   AuthenticatedAppPurchaseOrdersIndexRouteImport.update({
     id: '/purchase-orders/',
@@ -622,6 +629,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/daily-report': typeof ApiPublicHooksDailyReportRoute
   '/app/emi/': typeof AuthenticatedAppEmiIndexRoute
   '/app/orders/': typeof AuthenticatedAppOrdersIndexRoute
+  '/app/partner-finance/': typeof AuthenticatedAppPartnerFinanceIndexRoute
   '/app/purchase-orders/': typeof AuthenticatedAppPurchaseOrdersIndexRoute
   '/app/purchase-returns/': typeof AuthenticatedAppPurchaseReturnsIndexRoute
   '/app/purchases/': typeof AuthenticatedAppPurchasesIndexRoute
@@ -703,6 +711,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/daily-report': typeof ApiPublicHooksDailyReportRoute
   '/app/emi': typeof AuthenticatedAppEmiIndexRoute
   '/app/orders': typeof AuthenticatedAppOrdersIndexRoute
+  '/app/partner-finance': typeof AuthenticatedAppPartnerFinanceIndexRoute
   '/app/purchase-orders': typeof AuthenticatedAppPurchaseOrdersIndexRoute
   '/app/purchase-returns': typeof AuthenticatedAppPurchaseReturnsIndexRoute
   '/app/purchases': typeof AuthenticatedAppPurchasesIndexRoute
@@ -787,6 +796,7 @@ export interface FileRoutesById {
   '/api/public/hooks/daily-report': typeof ApiPublicHooksDailyReportRoute
   '/_authenticated/app/emi/': typeof AuthenticatedAppEmiIndexRoute
   '/_authenticated/app/orders/': typeof AuthenticatedAppOrdersIndexRoute
+  '/_authenticated/app/partner-finance/': typeof AuthenticatedAppPartnerFinanceIndexRoute
   '/_authenticated/app/purchase-orders/': typeof AuthenticatedAppPurchaseOrdersIndexRoute
   '/_authenticated/app/purchase-returns/': typeof AuthenticatedAppPurchaseReturnsIndexRoute
   '/_authenticated/app/purchases/': typeof AuthenticatedAppPurchasesIndexRoute
@@ -871,6 +881,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/daily-report'
     | '/app/emi/'
     | '/app/orders/'
+    | '/app/partner-finance/'
     | '/app/purchase-orders/'
     | '/app/purchase-returns/'
     | '/app/purchases/'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/daily-report'
     | '/app/emi'
     | '/app/orders'
+    | '/app/partner-finance'
     | '/app/purchase-orders'
     | '/app/purchase-returns'
     | '/app/purchases'
@@ -1035,6 +1047,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/daily-report'
     | '/_authenticated/app/emi/'
     | '/_authenticated/app/orders/'
+    | '/_authenticated/app/partner-finance/'
     | '/_authenticated/app/purchase-orders/'
     | '/_authenticated/app/purchase-returns/'
     | '/_authenticated/app/purchases/'
@@ -1449,6 +1462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppOrdersNewRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/partner-finance/': {
+      id: '/_authenticated/app/partner-finance/'
+      path: '/partner-finance'
+      fullPath: '/app/partner-finance/'
+      preLoaderRoute: typeof AuthenticatedAppPartnerFinanceIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/purchase-orders/': {
       id: '/_authenticated/app/purchase-orders/'
       path: '/purchase-orders'
@@ -1692,6 +1712,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppTasksTaskIdRoute: typeof AuthenticatedAppTasksTaskIdRoute
   AuthenticatedAppEmiIndexRoute: typeof AuthenticatedAppEmiIndexRoute
   AuthenticatedAppOrdersIndexRoute: typeof AuthenticatedAppOrdersIndexRoute
+  AuthenticatedAppPartnerFinanceIndexRoute: typeof AuthenticatedAppPartnerFinanceIndexRoute
   AuthenticatedAppPurchaseOrdersIndexRoute: typeof AuthenticatedAppPurchaseOrdersIndexRoute
   AuthenticatedAppPurchaseReturnsIndexRoute: typeof AuthenticatedAppPurchaseReturnsIndexRoute
   AuthenticatedAppPurchasesIndexRoute: typeof AuthenticatedAppPurchasesIndexRoute
@@ -1775,6 +1796,8 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppTasksTaskIdRoute: AuthenticatedAppTasksTaskIdRoute,
   AuthenticatedAppEmiIndexRoute: AuthenticatedAppEmiIndexRoute,
   AuthenticatedAppOrdersIndexRoute: AuthenticatedAppOrdersIndexRoute,
+  AuthenticatedAppPartnerFinanceIndexRoute:
+    AuthenticatedAppPartnerFinanceIndexRoute,
   AuthenticatedAppPurchaseOrdersIndexRoute:
     AuthenticatedAppPurchaseOrdersIndexRoute,
   AuthenticatedAppPurchaseReturnsIndexRoute:

@@ -191,6 +191,19 @@ const PHASES: { title: string; steps: Step[] }[] = [
         ],
       },
       {
+        t: "Third-party financed sales & settlements — brand shops only",
+        to: "/app/partner-finance",
+        do: [
+          "Set up finance providers, then record each approved phone sale with its IMEI, approval reference, customer installments and expected dealer payout.",
+          "Record provider payouts manually or import the provider's CSV/Excel settlement report; invoice or approval references match settlements automatically.",
+          "Review outstanding payouts and match any unmatched settlement lines to the correct sale.",
+        ],
+        rules: [
+          "These records track provider-financed sales only: no journal, cash receipt, customer payment or customer due is posted.",
+          "Only active brand-shop stock and an available phone IMEI can be sold this way. Partner-financed sales cannot be returned through the regular sales-return workflow.",
+        ],
+      },
+      {
         t: "Accounting",
         to: "/app/accounting",
         do: [

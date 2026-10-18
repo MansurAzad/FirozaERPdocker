@@ -93,6 +93,7 @@ const ROUTES: readonly [string, AccessModule][] = [
   ["/app/commission", "commission"],
   ["/app/transfers", "transfers"],
   ["/app/sales", "sales"],
+  ["/app/partner-finance", "sales"],
   ["/app/expenses", "expenses"],
   ["/app/reports", "reports"],
   ["/app/guardian", "guardian"],
