@@ -53,8 +53,8 @@
   --color-chart-5: var(--chart-5);
   --color-highlight: var(--highlight);
   --color-success: var(--success);
-  --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Hind Siliguri", "Nirmala UI", "Vrinda", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Hind Siliguri", "Nirmala UI", "Vrinda", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -154,6 +154,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+  }
+  html {
+    scrollbar-gutter: stable;
   }
   h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
   .num { font-variant-numeric: tabular-nums; }

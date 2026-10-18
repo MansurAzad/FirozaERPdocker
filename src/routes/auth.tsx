@@ -83,7 +83,7 @@ function AuthPage() {
   }
 
   return (
-    <div className="grid min-h-screen md:grid-cols-2">
+    <div className="grid min-h-screen min-h-svh md:grid-cols-2">
       <div className="hidden flex-col justify-between bg-sidebar p-10 text-sidebar-foreground md:flex">
         <div className="font-display text-lg font-bold text-sidebar-accent-foreground">{name}</div>
         <div>

@@ -6,6 +6,9 @@ second copy of the SSR application.
 
 ## Offline behavior and limits
 
+Typography uses fonts available on the computer, so the interface does not
+download fonts or change text metrics after loading.
+
 The app persists successfully loaded TanStack Query data in IndexedDB for the
 currently signed-in account. The cache expires after 24 hours, is cleared when
 the user signs out or changes account, and is restored before authenticated
