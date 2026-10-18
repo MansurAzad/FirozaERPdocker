@@ -51,6 +51,8 @@ import {
   Barcode,
   Link2,
   TrendingDown,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BusinessProvider, type Business, type Role, useBusiness } from "@/lib/business";
@@ -65,6 +67,7 @@ import { pendingEntry } from "@/lib/home-entry";
 import { VisitLogger } from "@/components/erp/VisitLogger";
 import { MobileBottomNav } from "@/components/erp/MobileBottomNav";
 import { NotificationBell } from "@/components/erp/NotificationBell";
+import { useAuditBeep } from "@/hooks/use-audit-beep";
 import {
   fullAccessMatrix,
   hasAccess,
@@ -394,6 +397,7 @@ function AppLayout() {
       }),
     [t, role, access],
   );
+  const auditBeep = useAuditBeep(business.id);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -434,7 +438,11 @@ function AppLayout() {
         access: access ?? {},
       }}
     >
-      <div className="app-shell flex h-svh min-h-0 w-full min-w-0 touch-manipulation overflow-hidden bg-background">
+      <div
+        className="app-shell flex h-svh min-h-0 w-full min-w-0 touch-manipulation overflow-hidden bg-background"
+        onPointerDownCapture={auditBeep.unlockAudio}
+        onKeyDownCapture={auditBeep.unlockAudio}
+      >
         {side ? (
           <aside className="hidden h-full w-64 shrink-0 flex-col bg-sidebar shadow-xl md:flex">
             {brand}
@@ -525,6 +533,18 @@ function AppLayout() {
               FIROZA ENTERPRISE
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={auditBeep.toggle}
+                aria-label={
+                  auditBeep.enabled ? "Turn off notification sounds" : "Turn on notification sounds"
+                }
+                title={auditBeep.enabled ? "Notification sounds on" : "Notification sounds off"}
+              >
+                {auditBeep.enabled ? <Volume2 /> : <VolumeX />}
+              </Button>
               <div className="hidden items-center gap-2 lg:flex">
                 {hasAccess(access, "team") && <NotificationBell />}
                 {hasAccess(access, "guardian") && (

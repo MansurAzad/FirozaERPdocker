@@ -131,6 +131,8 @@ export type Database = {
       audit_logs: {
         Row: {
           action: string;
+          actor_name: string | null;
+          actor_role: string | null;
           business_id: string;
           created_at: string;
           id: number;
@@ -138,10 +140,13 @@ export type Database = {
           new_value: Json | null;
           old_value: Json | null;
           record_id: string | null;
+          source_table: string | null;
           user_id: string | null;
         };
         Insert: {
           action: string;
+          actor_name?: string | null;
+          actor_role?: string | null;
           business_id: string;
           created_at?: string;
           id?: never;
@@ -149,10 +154,13 @@ export type Database = {
           new_value?: Json | null;
           old_value?: Json | null;
           record_id?: string | null;
+          source_table?: string | null;
           user_id?: string | null;
         };
         Update: {
           action?: string;
+          actor_name?: string | null;
+          actor_role?: string | null;
           business_id?: string;
           created_at?: string;
           id?: never;
@@ -160,11 +168,44 @@ export type Database = {
           new_value?: Json | null;
           old_value?: Json | null;
           record_id?: string | null;
+          source_table?: string | null;
           user_id?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "audit_logs_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      audit_notifications: {
+        Row: {
+          action: string;
+          business_id: string;
+          created_at: string;
+          id: number;
+          module: string;
+        };
+        Insert: {
+          action: string;
+          business_id: string;
+          created_at?: string;
+          id?: never;
+          module: string;
+        };
+        Update: {
+          action?: string;
+          business_id?: string;
+          created_at?: string;
+          id?: never;
+          module?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "audit_notifications_business_id_fkey";
             columns: ["business_id"];
             isOneToOne: false;
             referencedRelation: "businesses";

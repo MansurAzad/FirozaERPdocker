@@ -107,6 +107,12 @@ customer_ledger / supplier_ledger → SQL views over sales, payments, returns
 audit_logs(id, business_id, user_id, module, action, record_id, old, new, at)
 ```
 
+Audit reports retain the latest 30 days, include the actor, source table and
+before/after values, and support numbered pages, full-range CSV export and
+printing. A separate tenant-scoped, low-detail Realtime stream drives optional
+in-app tones without granting regular members access to the protected audit
+snapshots. Expired audit and notification rows are removed in scheduled batches.
+
 ## 6. Automatic journal rules
 
 | Event            | Debit               | Credit                   |

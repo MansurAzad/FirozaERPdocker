@@ -20,6 +20,17 @@ pages needed for an offline session at least once while connected. A valid,
 unexpired sign-in session and cached business membership are required to reopen
 the authenticated app offline.
 
+Audit reports retain at least the most recent 30 days. Older entries are
+removed in small scheduled batches. Database changes produce an optional
+in-app notification tone; the speaker control in the app header enables or
+disables it on that device. Sound requires a user interaction to unlock in
+browser/WebView audio settings.
+
+The audit page supports date-range filtering, numbered pages, full-range CSV
+export and printing. It records the acting member, action time, business page,
+source table, record ID, and before/after values; sensitive fields such as
+passwords and tokens are redacted in the report.
+
 Offline mode is not a second local ERP database. Server functions and RPCs that
 post sales, purchases, expenses, stock, balances, or other multi-step operations
 still require a connection; they are not safely replayable because they may
