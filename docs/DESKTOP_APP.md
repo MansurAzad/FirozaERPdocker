@@ -56,24 +56,15 @@ when synchronization resumes. Review the Sync History before retrying a failed
 write. Use the device's protected OS account because cached ERP data is stored
 locally by the browser/WebView.
 
-## Automatic Windows updates
+## Windows installer releases
 
-Every push to `main` automatically increments the desktop patch version,
-updates both Tauri and Cargo version fields, pushes a matching `vX.Y.Z` tag,
-builds a signed NSIS installer, and publishes a GitHub release containing
-Tauri's `latest.json` updater manifest and signature. The signed desktop app
-checks that public release manifest at startup, verifies available updates
-against its configured public key, then downloads and installs them
-automatically. Users may also download the `.exe` from the latest GitHub
-release to install or update manually.
+Update the Tauri and Cargo version fields to the same semantic version, then
+push a matching `vX.Y.Z` tag. The Windows desktop workflow builds an NSIS
+`.exe` and publishes it as an asset on the GitHub release for that tag. Users
+can download the installer from the [latest GitHub release](https://github.com/MansurAzad/FirozaERPdocker/releases/latest).
 
-The repository must keep the `TAURI_SIGNING_PRIVATE_KEY` Actions secret
-configured. If the key is encrypted, also configure
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep the private key and its backup safe:
-never commit it or put it in `.env`. The matching public key and updater
-endpoint are configured in `src-tauri/tauri.conf.json`; keep using the same
-signing key for future releases.
-
-For a manually managed release, update both version fields to the same
-semantic version and push the matching `vX.Y.Z` tag. The release workflow
-publishes the signed installer and updater manifest for that tag.
+The installer published from this repository is not code-signed, so Windows
+SmartScreen may show an unknown-publisher warning. The CI build disables Tauri
+updater artifacts and does not require signing secrets. The desktop updater's
+existing public key and endpoint remain unchanged; do not change them without
+the matching private key, or existing installations will reject updates.
