@@ -7,7 +7,7 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        gcTime: 30 * 86400_000,
+        gcTime: typeof window === "undefined" ? Infinity : 30 * 86400_000,
         networkMode: "online",
         staleTime: 20_000,
         refetchOnWindowFocus: true,

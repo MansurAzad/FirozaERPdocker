@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && node scripts/local/finalize-offline-build.mjs",
     "build:dev": "vite build --mode development",
     "tauri:build": "tauri build",
     "tauri:build:ci": "tauri build --config src-tauri/tauri.ci.conf.json",

@@ -1,0 +1,17 @@
+node_modules
+.output
+dist
+dist-ssr
+.vinxi
+.nitro
+.tanstack
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+supabase/.temp
+src-tauri/target
+src-tauri/updater.key
+src-tauri/updater.key.pub
+*.log
