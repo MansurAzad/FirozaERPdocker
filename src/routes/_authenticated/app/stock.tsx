@@ -267,15 +267,21 @@ function StockPage() {
         }
       />
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="text-xs font-semibold uppercase text-muted-foreground">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-4">
+          <div className="break-words text-xs font-semibold uppercase text-muted-foreground">
             Units in stock
           </div>
-          <div className="num mt-1 font-display text-2xl font-semibold">{units}</div>
+          <div className="num mt-1 break-words font-display text-xl font-semibold sm:text-2xl">
+            {units}
+          </div>
         </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="text-xs font-semibold uppercase text-muted-foreground">Stock value</div>
-          <div className="num mt-1 font-display text-2xl font-semibold">{bdt(value)}</div>
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-4">
+          <div className="break-words text-xs font-semibold uppercase text-muted-foreground">
+            Stock value
+          </div>
+          <div className="num mt-1 break-all font-display text-lg font-semibold sm:text-2xl">
+            {bdt(value)}
+          </div>
         </div>
       </div>
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">

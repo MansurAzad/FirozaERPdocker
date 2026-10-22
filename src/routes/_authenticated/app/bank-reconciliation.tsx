@@ -182,30 +182,34 @@ function BankReconciliation() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-card p-4">
-          <div className="text-xs uppercase text-muted-foreground">Book balance</div>
-          <div className="num mt-1 font-display text-xl font-semibold">{bdt(current?.balance)}</div>
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+          <div className="break-words text-xs uppercase text-muted-foreground">Book balance</div>
+          <div className="num mt-1 break-words font-display text-lg font-semibold sm:text-xl">
+            {bdt(current?.balance)}
+          </div>
         </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="text-xs uppercase text-muted-foreground">Statement balance</div>
-          <div className="num mt-1 font-display text-xl font-semibold">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+          <div className="break-words text-xs uppercase text-muted-foreground">
+            Statement balance
+          </div>
+          <div className="num mt-1 break-words font-display text-lg font-semibold sm:text-xl">
             {active ? bdt(active.statement_balance) : "—"}
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="text-xs uppercase text-muted-foreground">Difference</div>
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+          <div className="break-words text-xs uppercase text-muted-foreground">Difference</div>
           <div
             className={
-              "num mt-1 font-display text-xl font-semibold " +
+              "num mt-1 break-words font-display text-lg font-semibold sm:text-xl " +
               (active && Number(active.difference) !== 0 ? "text-destructive" : "")
             }
           >
             {active ? bdt(active.difference) : "—"}
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="text-xs uppercase text-muted-foreground">Items / cleared</div>
-          <div className="num mt-1 font-display text-xl font-semibold">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+          <div className="break-words text-xs uppercase text-muted-foreground">Items / cleared</div>
+          <div className="num mt-1 break-words font-display text-lg font-semibold sm:text-xl">
             {items.data
               ? `${items.data.filter((i) => i.cleared).length} / ${items.data.length}`
               : "—"}

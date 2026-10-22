@@ -301,9 +301,9 @@ function MoneyPage() {
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-sidebar p-4 text-sidebar-foreground">
-          <div className="text-xs uppercase opacity-70">Total balance</div>
-          <div className="num mt-1 font-display text-2xl font-semibold text-sidebar-accent-foreground">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-sidebar p-3 text-sidebar-foreground sm:p-4">
+          <div className="break-words text-xs uppercase opacity-70">Total balance</div>
+          <div className="num mt-1 break-all font-display text-lg font-semibold text-sidebar-accent-foreground sm:text-2xl">
             {bdt(total)}
           </div>
         </div>
@@ -312,25 +312,25 @@ function MoneyPage() {
             key={a.id!}
             onClick={() => setSel(a.id!)}
             className={
-              "rounded-lg border bg-card p-4 text-left transition-colors " +
+              "min-w-0 overflow-hidden rounded-lg border bg-card p-3 text-left transition-colors sm:p-4 " +
               (selected === a.id
                 ? "border-primary ring-2 ring-primary/20"
                 : "hover:border-foreground/30")
             }
           >
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{KIND_LABEL[a.kind!]}</span>
+            <div className="flex min-w-0 items-start justify-between gap-2 text-xs text-muted-foreground">
+              <span className="break-words">{KIND_LABEL[a.kind!]}</span>
               {a.status === "inactive" && <Badge variant="secondary">Inactive</Badge>}
             </div>
-            <div className="mt-0.5 font-medium">{a.name}</div>
+            <div className="mt-0.5 break-words font-medium">{a.name}</div>
             {a.account_no && (
-              <div className="num text-xs text-muted-foreground">
+              <div className="num break-words text-xs text-muted-foreground">
                 {a.bank_name} · {a.account_no}
               </div>
             )}
             <div
               className={
-                "num mt-2 font-display text-xl font-semibold " +
+                "num mt-2 break-all font-display text-lg font-semibold sm:text-xl " +
                 (Number(a.balance) < 0 ? "text-destructive" : "")
               }
             >

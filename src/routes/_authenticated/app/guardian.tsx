@@ -202,7 +202,7 @@ function GuardianPage() {
         }
       />
 
-      <div className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-5">
         {[
           ["Critical", count("critical"), "text-destructive"],
           ["High", count("high"), "text-destructive"],
@@ -214,9 +214,16 @@ function GuardianPage() {
             "text-primary",
           ],
         ].map(([l, v, c]) => (
-          <div key={l as string} className="bg-card p-4">
-            <div className="text-xs font-medium uppercase text-muted-foreground">{l}</div>
-            <div className={cn("num mt-1 font-display text-2xl font-semibold", c as string)}>
+          <div key={l as string} className="min-w-0 overflow-hidden bg-card p-3 sm:p-4">
+            <div className="break-words text-xs font-medium uppercase text-muted-foreground">
+              {l}
+            </div>
+            <div
+              className={cn(
+                "num mt-1 break-words font-display text-xl font-semibold sm:text-2xl",
+                c as string,
+              )}
+            >
               {v as number}
             </div>
           </div>

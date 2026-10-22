@@ -155,11 +155,11 @@ function DueCollection() {
       <PageHeader title="Due Collection" sub={`কার কাছে কত টাকা পাওনা? — total ${bdt(grand)}`} />
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-6">
         {BUCKETS.map((b, i) => (
-          <div key={b} className="bg-card p-4">
-            <div className="text-xs text-muted-foreground">{b}</div>
+          <div key={b} className="min-w-0 overflow-hidden bg-card p-3 sm:p-4">
+            <div className="break-words text-xs text-muted-foreground">{b}</div>
             <div
               className={
-                "num mt-1 font-display text-lg font-semibold " +
+                "num mt-1 break-all font-display text-sm font-semibold leading-tight sm:text-base " +
                 (i >= 4 && totals[i]! > 0 ? "text-destructive" : "")
               }
             >

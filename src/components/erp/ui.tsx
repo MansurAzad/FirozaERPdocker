@@ -33,19 +33,19 @@ export function Stat({
   tone?: "pos" | "neg" | undefined;
 }) {
   return (
-    <div className="bg-card p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="min-w-0 bg-card p-3 sm:p-5">
+      <div className="break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div
         className={
-          "num mt-2 font-display text-2xl font-semibold " +
+          "num mt-2 break-words font-display text-xl font-semibold leading-tight sm:text-2xl " +
           (tone === "neg" ? "text-destructive" : tone === "pos" ? "text-success" : "")
         }
       >
         {bdt(value)}
       </div>
-      {note && <div className="mt-1 text-xs text-muted-foreground">{note}</div>}
+      {note && <div className="mt-1 break-words text-xs text-muted-foreground">{note}</div>}
     </div>
   );
 }

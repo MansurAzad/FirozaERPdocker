@@ -289,9 +289,9 @@ function CourierBoard() {
 
 function StatCard({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={"num text-lg font-semibold " + tone}>{value}</p>
+    <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3">
+      <p className="break-words text-xs text-muted-foreground">{label}</p>
+      <p className={"num break-words text-base font-semibold sm:text-lg " + tone}>{value}</p>
     </div>
   );
 }

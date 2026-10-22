@@ -1,7 +1,7 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Users, Handshake, GitBranch, Plus } from "lucide-react";
+import { Package, Users, Handshake, GitBranch, Plus, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { hasAccess, type AccessModule } from "@/lib/access-control";
@@ -106,7 +106,7 @@ function Dashboard() {
               .select("credit_limit, opening_balance")
               .eq("business_id", business.id)
           : null,
-        canView("supplier_payments")
+        canView("supplier_aging")
           ? supabase
               .from("supplier_balances")
               .select("current_payable")
@@ -251,42 +251,49 @@ function Dashboard() {
       module: "sales" as const,
       v: data?.todaySales ?? 0,
       note: `Gross profit ${bdt(data?.todayProfit)}`,
+      to: "/app/sales" as const,
     },
     {
       k: "todayPurchase" as const,
       module: "purchases" as const,
       v: data?.todayPurchase ?? 0,
       note: "Posted purchases today",
+      to: "/app/purchases" as const,
     },
     {
       k: "cashBalance" as const,
       module: "cash_bank" as const,
       v: data?.cash ?? 0,
       note: "All cash accounts",
+      to: "/app/money" as const,
     },
     {
       k: "bankBalance" as const,
       module: "cash_bank" as const,
       v: data?.bank ?? 0,
       note: "Bank + bKash/Nagad/Rocket",
+      to: "/app/money" as const,
     },
     {
       k: "stockValue" as const,
       module: "inventory" as const,
       v: data?.stockValue ?? 0,
       note: "At landed cost",
+      to: "/app/stock" as const,
     },
     {
       k: "customerDue" as const,
       module: "due_collection" as const,
       v: data?.customerDue ?? 0,
       note: "Opening + sales − collections",
+      to: "/app/due-collection" as const,
     },
     {
       k: "supplierDue" as const,
-      module: "supplier_payments" as const,
+      module: "supplier_aging" as const,
       v: data?.supplierDue ?? 0,
       note: "Opening + purchases − payments",
+      to: "/app/supplier-aging" as const,
     },
   ];
   const counts = [
@@ -336,15 +343,26 @@ function Dashboard() {
         {money
           .filter((m) => hasAccess(access, m.module))
           .map((m) => (
-            <div key={m.k} className="min-w-0 overflow-hidden bg-card p-3 sm:p-5">
-              <div className="break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t(m.k)}
+            <Link
+              key={m.k}
+              to={m.to}
+              aria-label={`${t(m.k)}: ${bdt(m.v)}. ${m.note}`}
+              className="group flex min-w-0 flex-col overflow-hidden bg-card p-3 transition-colors hover:bg-muted/40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
+            >
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <div className="min-w-0 break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t(m.k)}
+                </div>
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+                />
               </div>
-              <div className="num mt-2 break-all font-display text-xl font-semibold sm:text-2xl xl:text-3xl">
+              <div className="num mt-2 whitespace-nowrap font-display text-base font-semibold leading-tight tracking-tight sm:text-xl xl:text-2xl">
                 {bdt(m.v)}
               </div>
               <div className="mt-1 break-words text-xs text-muted-foreground">{m.note}</div>
-            </div>
+            </Link>
           ))}
       </div>
 
@@ -355,10 +373,10 @@ function Dashboard() {
             <Link
               key={c.label}
               to={c.to}
-              className="group min-w-0 overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 sm:p-5"
+              className="group min-w-0 overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
             >
               <c.icon className="h-5 w-5 text-primary" />
-              <div className="num mt-3 break-all font-display text-xl font-semibold sm:text-2xl">
+              <div className="num mt-3 whitespace-nowrap font-display text-lg font-semibold leading-tight sm:text-2xl">
                 {c.v ?? "—"}
               </div>
               <div className="break-words text-sm font-medium">{c.label}</div>
@@ -370,7 +388,13 @@ function Dashboard() {
       {hasAccess(access, "sales") && (
         <div className="grid min-w-0 gap-4 lg:grid-cols-7">
           <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-5 lg:col-span-4">
-            <div className="text-sm font-semibold">Sales &amp; profit — last 14 days</div>
+            <Link
+              to="/app/sales"
+              className="inline-flex min-w-0 items-center gap-1 text-sm font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="break-words">Sales &amp; profit — last 14 days</span>
+              <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+            </Link>
             <div className="mb-4 text-xs text-muted-foreground">
               Posted invoices; gross profit before other expenses
             </div>
@@ -420,7 +444,13 @@ function Dashboard() {
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-5 lg:col-span-3">
-            <div className="text-sm font-semibold">Top products — 30 days</div>
+            <Link
+              to="/app/products"
+              className="inline-flex min-w-0 items-center gap-1 text-sm font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="break-words">Top products — 30 days</span>
+              <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+            </Link>
             <div className="mb-4 text-xs text-muted-foreground">By revenue</div>
             {top.data?.length ? (
               <ChartContainer config={topConfig} className="aspect-auto h-[240px] w-full">

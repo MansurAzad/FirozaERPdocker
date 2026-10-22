@@ -148,11 +148,13 @@ function Reports() {
               : undefined
           }
         />
-        <div className="bg-card p-5">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="min-w-0 bg-card p-3 sm:p-5">
+          <div className="break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Units sold
           </div>
-          <div className="num mt-2 font-display text-2xl font-semibold">{totals.qty}</div>
+          <div className="num mt-2 break-words font-display text-xl font-semibold sm:text-2xl">
+            {totals.qty}
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap gap-1 border-b print:hidden">
@@ -264,7 +266,7 @@ function StockReport() {
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Low stock items
           </div>
-          <div className="num mt-2 font-display text-2xl font-semibold text-destructive">
+          <div className="num mt-2 break-words font-display text-xl font-semibold text-destructive sm:text-2xl">
             {rows.filter((r) => r.low).length}
           </div>
         </div>

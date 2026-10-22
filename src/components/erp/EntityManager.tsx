@@ -97,12 +97,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-      <div className="min-w-0">
+    <div className="mb-6 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      <div className="min-w-0 flex-1">
         <h1 className="break-words text-2xl font-bold sm:text-3xl">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-muted-foreground">{sub}</p>}
+        {sub && <p className="mt-1 break-words text-sm text-muted-foreground">{sub}</p>}
       </div>
-      <div className="flex flex-wrap gap-2">{actions}</div>
+      <div className="flex min-w-0 flex-wrap gap-2">{actions}</div>
     </div>
   );
 }
