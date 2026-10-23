@@ -124,6 +124,12 @@ export function EntityManager({
   initialSearch = "",
   canExport = false,
   canImport = false,
+  branchFilterId,
+  filterByBranchAssignment = false,
+  beforeContent,
+  createRecord,
+  createOnlyFields = [],
+  enrichRows,
 }: {
   table: EntityTable;
   title: string;
@@ -141,6 +147,12 @@ export function EntityManager({
   initialSearch?: string;
   canExport?: boolean;
   canImport?: boolean;
+  branchFilterId?: string | null;
+  filterByBranchAssignment?: boolean;
+  beforeContent?: ReactNode;
+  createRecord?: (row: Row) => Promise<{ queued?: boolean } | void>;
+  createOnlyFields?: string[];
+  enrichRows?: (rows: Row[]) => Promise<Row[]>;
 }) {
   const { business } = useBusiness();
   const { t } = useI18n();
@@ -148,24 +160,43 @@ export function EntityManager({
   const [q, setQ] = useState(initialSearch);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Row>({});
-  const key = [table, business.id];
+  const key = [table, business.id, branchFilterId, filterByBranchAssignment];
 
   const { data, isLoading, error } = useQuery({
     queryKey: key,
     queryFn: async () => {
       const all: Row[] = [];
-      for (let offset = 0; ; offset += 1000) {
+      let assignmentCustomerIds: Set<string> | undefined;
+      if (filterByBranchAssignment && branchFilterId) {
         const { data, error } = await entityClient
+          .from("customer_branch_assignments")
+          .select("customer_id")
+          .eq("business_id", business.id)
+          .eq("branch_id", branchFilterId);
+        if (error) throw error;
+        assignmentCustomerIds = new Set(
+          (data as { customer_id: string }[]).map((row) => row.customer_id),
+        );
+        if (!assignmentCustomerIds.size) return [];
+      }
+      for (let offset = 0; ; offset += 1000) {
+        const query = entityClient
           .from(table)
           .select("*")
           .eq("business_id", business.id)
           .order(orderBy, { ascending: orderBy !== "created_at" })
           .order("id", { ascending: true })
           .range(offset, offset + 999);
+        const { data, error } = await query;
         if (error) throw error;
         const page = data as Row[];
         all.push(...page);
-        if (page.length < 1000) return all;
+        if (page.length < 1000) {
+          const filtered = assignmentCustomerIds
+            ? all.filter((row) => assignmentCustomerIds.has(row.id ?? ""))
+            : all;
+          return enrichRows ? enrichRows(filtered) : filtered;
+        }
       }
     },
   });
@@ -187,6 +218,7 @@ export function EntityManager({
     mutationFn: async (vals: Row) => {
       const clean: Row = {};
       for (const f of fields) {
+        if (editing?.id && createOnlyFields.includes(f.key)) continue;
         const v = vals[f.key];
         clean[f.key] = f.type === "number" ? Number(v || 0) : v === "" ? null : v;
       }
@@ -196,9 +228,11 @@ export function EntityManager({
             .update(clean)
             .eq("business_id", business.id)
             .eq("id", editing.id)
-        : await entityClient.from(table).insert({ ...clean, business_id: business.id });
-      if (res.error) throw res.error;
-      return { queued: res.status === 202 };
+        : createRecord
+          ? await createRecord(clean)
+          : await entityClient.from(table).insert({ ...clean, business_id: business.id });
+      if (res && "error" in res && res.error) throw res.error;
+      return { queued: res && "status" in res ? res.status === 202 : false };
     },
     onSuccess: ({ queued }) => {
       if (queued) toast.info("Saved on this device; sync pending");
@@ -256,7 +290,7 @@ export function EntityManager({
     ...(field.required ? { required: true } : {}),
     type: field.type === "number" ? "number" : "text",
   }));
-  const exportRows: ExcelRecord[] = (data ?? []).map((row) =>
+  const exportRows: ExcelRecord[] = rows.map((row) =>
     Object.fromEntries(fields.map((field) => [field.key, row[field.key] ?? ""])),
   );
   const importRecords = async (records: ExcelRecord[]) => {
@@ -302,10 +336,14 @@ export function EntityManager({
       payload.push(clean);
     }
     if (payload.length) {
-      const { error } = await entityClient
-        .from(table)
-        .insert(payload.map((row) => ({ ...row, business_id: business.id })));
-      if (error) throw error;
+      if (createRecord) {
+        for (const row of payload) await createRecord(row);
+      } else {
+        const { error } = await entityClient
+          .from(table)
+          .insert(payload.map((row) => ({ ...row, business_id: business.id })));
+        if (error) throw error;
+      }
       await qc.invalidateQueries({ queryKey: key });
     }
     return { imported: payload.length, skipped };
@@ -361,6 +399,7 @@ export function EntityManager({
           </>
         }
       />
+      {beforeContent}
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <div className="border-b p-3 sm:p-4">
           <Input

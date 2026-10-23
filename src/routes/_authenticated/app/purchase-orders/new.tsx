@@ -81,13 +81,49 @@ function PoForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id,name")
+        .select("id,name,status")
         .eq("business_id", business.id)
+        .eq("status", "active")
         .order("name");
       if (error) throw error;
       return data;
     },
   });
+  const supplierAssignments = useQuery({
+    queryKey: ["shop-supplier-assignments", business.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supplier_branch_assignments")
+        .select("branch_id,supplier_id,is_default")
+        .eq("business_id", business.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const selectedBranch = useMemo(
+    () => branches.data?.find((item) => item.id === br),
+    [branches.data, br],
+  );
+  const allowedSuppliers = useMemo(
+    () =>
+      selectedBranch?.kind === "branch"
+        ? (suppliers.data ?? []).filter((item) =>
+            supplierAssignments.data?.some(
+              (assignment) => assignment.branch_id === br && assignment.supplier_id === item.id,
+            ),
+          )
+        : (suppliers.data ?? []),
+    [br, selectedBranch, supplierAssignments.data, suppliers.data],
+  );
+  useEffect(() => {
+    if (selectedBranch?.kind !== "branch") return;
+    if (supplier && allowedSuppliers.some((item) => item.id === supplier)) return;
+    const defaultSupplier =
+      supplierAssignments.data?.find(
+        (assignment) => assignment.branch_id === br && assignment.is_default,
+      )?.supplier_id ?? "";
+    setSupplier(defaultSupplier);
+  }, [allowedSuppliers, br, selectedBranch, supplier, supplierAssignments.data]);
 
   const variants = useQuery({
     queryKey: ["po-variants", business.id],
@@ -255,12 +291,18 @@ function PoForm() {
                 onChange={(e) => setSupplier(e.target.value)}
               >
                 <option value="">Select supplier…</option>
-                {suppliers.data?.map((s) => (
+                {allowedSuppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </select>
+              {selectedBranch?.kind === "branch" && allowedSuppliers.length === 0 && (
+                <p className="text-xs text-destructive">
+                  No active supplier is assigned to this shop. Ask an administrator to configure
+                  FIROZA ENTERPRISE or assign another supplier.
+                </p>
+              )}
             </F>
             <F label="Deliver to branch">
               <select className={selectCls} value={br} onChange={(e) => setBranch(e.target.value)}>

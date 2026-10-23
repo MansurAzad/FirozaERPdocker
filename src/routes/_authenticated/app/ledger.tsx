@@ -1,7 +1,7 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { FileText, FileSpreadsheet, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { makePdf, makeXlsx, download, shareFile, type Sheet } from "@/lib/export";
+import { useBranches } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/app/ledger")({
   head: ({ matches }) => ({
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/app/ledger")({
   validateSearch: z.object({
     kind: z.enum(["customer", "supplier"]).optional(),
     party: z.string().optional(),
+    branch: z.string().optional(),
   }),
   component: Ledger,
 });
@@ -50,22 +52,53 @@ type Row = {
 };
 
 function Ledger() {
-  const { business } = useBusiness();
+  const { business, role, userId } = useBusiness();
   const search = Route.useSearch();
   const [kind, setKind] = useState<"customer" | "supplier">(search.kind ?? "customer");
   const [party, setParty] = useState(search.party ?? "");
+  const branches = useBranches(business.id);
+  const isCentral = ["owner", "manager", "accountant"].includes(role);
+  const branchAccess = useQuery({
+    queryKey: ["ledger-branch-access", business.id, userId],
+    enabled: !isCentral,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_finance_branch_access")
+        .select("branch_id")
+        .eq("business_id", business.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data.map((entry) => entry.branch_id);
+    },
+  });
+  const accessibleBranches = (branches.data ?? []).filter(
+    (branch) =>
+      branch.kind === "branch" && (isCentral || (branchAccess.data ?? []).includes(branch.id)),
+  );
+  const [branchId, setBranchId] = useState(search.branch ?? "");
+  useEffect(() => {
+    if (!accessibleBranches.some((branch) => branch.id === branchId)) {
+      setBranchId(accessibleBranches[0]?.id ?? "");
+    }
+  }, [accessibleBranches, branchId]);
 
   const parties = useQuery({
-    queryKey: ["ledger-parties", kind, business.id],
+    queryKey: ["ledger-parties", kind, business.id, branchId],
     queryFn: async () => {
       if (kind === "customer") {
+        if (!branchId) return [];
         const { data, error } = await supabase
-          .from("customers")
-          .select("id,name,mobile")
+          .from("customer_branch_balances")
+          .select("customer_id,name,mobile")
           .eq("business_id", business.id)
+          .eq("branch_id", branchId)
           .order("name");
         if (error) throw error;
-        return data;
+        return data.flatMap((customer) =>
+          customer.customer_id
+            ? [{ id: customer.customer_id, name: customer.name, mobile: customer.mobile }]
+            : [],
+        );
       }
       const { data, error } = await supabase
         .from("suppliers")
@@ -78,29 +111,33 @@ function Ledger() {
   });
 
   const ledger = useQuery({
-    enabled: !!party,
-    queryKey: ["ledger", kind, party],
+    enabled: !!party && (kind === "supplier" || Boolean(branchId)),
+    queryKey: ["ledger", kind, party, branchId],
     queryFn: async (): Promise<{ opening: number; rows: Row[]; limit?: number }> => {
       if (kind === "customer") {
         const [c, s, p, r] = await Promise.all([
           supabase
-            .from("customers")
-            .select("opening_balance,credit_limit,created_at")
-            .eq("id", party)
+            .from("customer_branch_balances")
+            .select("opening_balance,credit_limit")
+            .eq("customer_id", party)
+            .eq("branch_id", branchId)
             .single(),
           supabase
             .from("sales")
             .select("id,invoice_no,sale_date,total,created_at")
             .eq("customer_id", party)
+            .eq("branch_id", branchId)
             .eq("status", "posted"),
           supabase
             .from("customer_payments")
             .select("id,paid_on,amount,method,txn_ref,sale_id,created_at")
-            .eq("customer_id", party),
+            .eq("customer_id", party)
+            .eq("branch_id", branchId),
           supabase
             .from("sales_returns")
             .select("id,return_no,return_date,total,refund,sale_id,created_at,sales(invoice_no)")
-            .eq("customer_id", party),
+            .eq("customer_id", party)
+            .eq("branch_id", branchId),
         ]);
         for (const x of [c, s, p, r]) if (x.error) throw x.error;
         const rows: Row[] = [
@@ -301,6 +338,25 @@ function Ledger() {
             </button>
           ))}
         </div>
+        {isC && (
+          <F label="Brand shop" className="min-w-48">
+            <select
+              className={selectCls}
+              value={branchId}
+              onChange={(event) => {
+                setBranchId(event.target.value);
+                setParty("");
+              }}
+            >
+              {accessibleBranches.length === 0 && <option value="">No assigned shop</option>}
+              {accessibleBranches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </F>
+        )}
         <F label={isC ? "Customer" : "Supplier"} className="min-w-64">
           <select className={selectCls} value={party} onChange={(e) => setParty(e.target.value)}>
             <option value="">— Select —</option>

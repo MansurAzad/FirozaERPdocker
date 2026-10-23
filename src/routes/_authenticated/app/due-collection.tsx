@@ -1,12 +1,12 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
-import { useMoneyAccounts } from "@/lib/finance";
+import { useBranches, useMoneyAccounts } from "@/lib/finance";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, METHODS, methodLabel, selectCls, today, type Method } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
@@ -66,27 +66,66 @@ function bucketOf(ageDays: number, terms: number) {
 }
 
 function DueCollection() {
-  const { business } = useBusiness();
+  const { business, role, userId } = useBusiness();
   const qc = useQueryClient();
   const accounts = useMoneyAccounts(business.id);
+  const branches = useBranches(business.id);
+  const isCentral = ["owner", "manager", "accountant"].includes(role);
+  const branchAccess = useQuery({
+    queryKey: ["due-collection-branch-access", business.id, userId],
+    enabled: !isCentral,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_finance_branch_access")
+        .select("branch_id")
+        .eq("business_id", business.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data.map((entry) => entry.branch_id);
+    },
+  });
+  const availableBranches = (branches.data ?? []).filter(
+    (branch) =>
+      branch.kind === "branch" && (isCentral || (branchAccess.data ?? []).includes(branch.id)),
+  );
+  const [branchId, setBranchId] = useState("");
   const [q, setQ] = useState("");
-  const [pay, setPay] = useState<{ id: string; name: string; due: number } | null>(null);
+  const [pay, setPay] = useState<{
+    id: string;
+    name: string;
+    due: number;
+    branchId: string;
+  } | null>(null);
   const [f, setF] = useState<Record<string, string>>({});
+  const collectingBranchId = pay?.branchId ?? branchId;
+  const branchAccounts = (accounts.data ?? []).filter(
+    (account) =>
+      account.status === "active" &&
+      (account.branch_id == null || account.branch_id === collectingBranchId),
+  );
+
+  useEffect(() => {
+    if (!availableBranches.some((branch) => branch.id === branchId))
+      setBranchId(availableBranches[0]?.id ?? "");
+  }, [availableBranches, branchId]);
 
   const { data, error } = useQuery({
-    queryKey: ["due-collection", business.id],
+    queryKey: ["due-collection", business.id, branchId],
+    enabled: Boolean(branchId),
     queryFn: async () => {
       const [b, s] = await Promise.all([
         supabase
-          .from("customer_balances")
+          .from("customer_branch_balances")
           .select("*")
           .eq("business_id", business.id)
+          .eq("branch_id", branchId)
           .gt("current_due", 0)
           .order("current_due", { ascending: false }),
         supabase
           .from("sales")
           .select("customer_id,sale_date,total")
           .eq("business_id", business.id)
+          .eq("branch_id", branchId)
           .eq("status", "posted")
           .not("customer_id", "is", null)
           .order("sale_date"),
@@ -130,10 +169,11 @@ function DueCollection() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("receive_customer_payment", {
+      const { error } = await supabase.rpc("receive_customer_payment_for_branch", {
+        _branch: pay!.branchId,
         _biz: business.id,
         _customer: pay!.id,
-        _account: f["account"] || accounts.data?.[0]?.id || "",
+        _account: f["account"] || branchAccounts[0]?.id || "",
         _amount: Number(f["amount"] || 0),
         _date: f["date"] ?? today(),
         _method: (f["method"] ?? "cash") as Method,
@@ -153,6 +193,23 @@ function DueCollection() {
   return (
     <div>
       <PageHeader title="Due Collection" sub={`কার কাছে কত টাকা পাওনা? — total ${bdt(grand)}`} />
+      <div className="mb-4">
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <span>Brand shop</span>
+          <select
+            className={selectCls}
+            value={branchId}
+            onChange={(event) => setBranchId(event.target.value)}
+          >
+            {availableBranches.length === 0 && <option value="">No assigned shop</option>}
+            {availableBranches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-6">
         {BUCKETS.map((b, i) => (
           <div key={b} className="min-w-0 overflow-hidden bg-card p-3 sm:p-4">
@@ -183,7 +240,11 @@ function DueCollection() {
             className="max-w-xs"
           />
         </div>
-        {error ? (
+        {branches.error || branchAccess.error ? (
+          <p className="p-6 text-sm text-destructive">
+            {friendlyError(branches.error ?? branchAccess.error)}
+          </p>
+        ) : error ? (
           <p className="p-6 text-sm text-destructive">{friendlyError(error)}</p>
         ) : !rows.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">No customer dues. 🎉</p>
@@ -237,7 +298,12 @@ function DueCollection() {
                         size="sm"
                         onClick={() => {
                           setF({ date: today(), method: "cash", amount: String(r.current_due) });
-                          setPay({ id: r.customer_id!, name: r.name!, due: Number(r.current_due) });
+                          setPay({
+                            id: r.customer_id!,
+                            name: r.name!,
+                            due: Number(r.current_due),
+                            branchId: r.branch_id!,
+                          });
                         }}
                       >
                         Receive
@@ -291,13 +357,11 @@ function DueCollection() {
                 value={f["account"] ?? ""}
                 onChange={(e) => setF({ ...f, account: e.target.value })}
               >
-                {accounts.data
-                  ?.filter((a) => a.status === "active")
-                  .map((a) => (
-                    <option key={a.id!} value={a.id!}>
-                      {a.name}
-                    </option>
-                  ))}
+                {branchAccounts.map((a) => (
+                  <option key={a.id!} value={a.id!}>
+                    {a.name}
+                  </option>
+                ))}
               </select>
             </F>
             <F label="Date">

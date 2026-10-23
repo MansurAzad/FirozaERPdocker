@@ -18,7 +18,6 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness, useCan } from "@/lib/business";
-import { BRAND_SHOPS } from "@/lib/home-entry";
 import { bdt, friendlyError } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,29 +117,6 @@ function BrandShops() {
   useEffect(() => {
     setPage(0);
   }, [branch?.id, from, to, tab]);
-  const setup = useMutation({
-    mutationFn: async () => {
-      const existing = shopList;
-      const missing = BRAND_SHOPS.filter(
-        (name) => !existing.some((b) => b.name.toLowerCase() === name.toLowerCase()),
-      );
-      if (!missing.length) return;
-      const { error } = await supabase.from("branches").insert(
-        missing.map((name) => ({
-          business_id: business.id,
-          name,
-          kind: "branch" as const,
-          status: "active" as const,
-        })),
-      );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries();
-      toast.success("Brand shops are ready");
-    },
-    onError: (e) => toast.error(friendlyError(e)),
-  });
   const addShop = useMutation({
     mutationFn: async () => {
       const name = newName.trim();
@@ -384,17 +360,6 @@ function BrandShops() {
             <Plus className="h-4 w-4" />
             {addShop.isPending ? "Opening…" : "Open shop"}
           </Button>
-          {shopList.length < BRAND_SHOPS.length && (
-            <Button
-              className="h-auto min-h-9 whitespace-normal"
-              type="button"
-              variant="outline"
-              onClick={() => setup.mutate()}
-              disabled={setup.isPending}
-            >
-              Add the 6 default brand shops
-            </Button>
-          )}
         </form>
       )}
       {shops.error && <p className="text-destructive">{friendlyError(shops.error)}</p>}

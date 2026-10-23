@@ -41,3 +41,5 @@ dist-ssr
 *.sw?
 
 .vercel
+
+/src/assets/Excel_Export/

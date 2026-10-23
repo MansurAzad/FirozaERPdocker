@@ -98,18 +98,18 @@ function NewSale() {
     "";
 
   const custs = useQuery({
-    queryKey: ["customer_balances", business.id],
+    queryKey: ["customer_branch_balances", business.id, br],
+    enabled: Boolean(br),
     queryFn: async () => {
-      const [b, c] = await Promise.all([
-        supabase.from("customer_balances").select("*").eq("business_id", business.id).order("name"),
-        supabase.from("customers").select("id,price_level,status").eq("business_id", business.id),
-      ]);
-      if (b.error) throw b.error;
-      if (c.error) throw c.error;
-      const lv = new Map(c.data.map((x) => [x.id, x]));
-      return b.data
-        .filter((x) => lv.get(x.customer_id!)?.status === "active")
-        .map((x) => ({ ...x, price_level: lv.get(x.customer_id!)?.price_level ?? "retail" }));
+      const { data, error } = await supabase
+        .from("customer_branch_balances")
+        .select("*")
+        .eq("business_id", business.id)
+        .eq("branch_id", br)
+        .eq("status", "active")
+        .order("name");
+      if (error) throw error;
+      return data;
     },
   });
   const cust = custs.data?.find((c) => c.customer_id === customer);

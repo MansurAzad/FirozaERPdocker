@@ -104,7 +104,7 @@ function NewPurchase() {
   const lk = useQuery({
     queryKey: ["purchase-lookups", business.id],
     queryFn: async () => {
-      const [s, b, v] = await Promise.all([
+      const [s, b, v, a] = await Promise.all([
         supabase
           .from("suppliers")
           .select("id,name,company,status")
@@ -124,12 +124,58 @@ function NewPurchase() {
           )
           .eq("business_id", business.id)
           .eq("status", "active"),
+        supabase
+          .from("supplier_branch_assignments")
+          .select("branch_id,supplier_id,is_default")
+          .eq("business_id", business.id),
       ]);
-      for (const x of [s, b, v]) if (x.error) throw x.error;
-      return { suppliers: s.data!, branches: b.data!, variants: v.data! };
+      for (const x of [s, b, v, a]) if (x.error) throw x.error;
+      return {
+        suppliers: s.data!,
+        branches: b.data!,
+        variants: v.data!,
+        supplierAssignments: a.data!,
+      };
     },
   });
   const vmap = useMemo(() => new Map((lk.data?.variants ?? []).map((v) => [v.id, v])), [lk.data]);
+  const selectedBranch = useMemo(
+    () => lk.data?.branches.find((branch) => branch.id === head.branch_id),
+    [head.branch_id, lk.data],
+  );
+  const branchSupplierAssignments = useMemo(
+    () =>
+      (lk.data?.supplierAssignments ?? []).filter(
+        (assignment) => assignment.branch_id === head.branch_id,
+      ),
+    [head.branch_id, lk.data],
+  );
+  const allowedSuppliers = useMemo(
+    () =>
+      selectedBranch?.kind === "branch"
+        ? (lk.data?.suppliers.filter((supplier) =>
+            branchSupplierAssignments.some(
+              (assignment) =>
+                assignment.supplier_id === supplier.id && supplier.status === "active",
+            ),
+          ) ?? [])
+        : (lk.data?.suppliers ?? []),
+    [branchSupplierAssignments, lk.data, selectedBranch],
+  );
+  useEffect(() => {
+    if (!head.branch_id || !selectedBranch) return;
+    if (head.supplier_id && allowedSuppliers.some((supplier) => supplier.id === head.supplier_id))
+      return;
+    const defaultSupplier =
+      branchSupplierAssignments.find((assignment) => assignment.is_default)?.supplier_id ?? "";
+    setHead((current) => ({ ...current, supplier_id: defaultSupplier }));
+  }, [
+    head.branch_id,
+    head.supplier_id,
+    selectedBranch,
+    allowedSuppliers,
+    branchSupplierAssignments,
+  ]);
   useEffect(() => {
     if (!search.variant) return;
     const variant = vmap.get(search.variant);
@@ -250,13 +296,19 @@ function NewPurchase() {
                 onChange={(e) => setHead({ ...head, supplier_id: e.target.value })}
               >
                 <option value="">Select…</option>
-                {lk.data?.suppliers.map((s) => (
+                {allowedSuppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                     {s.company ? ` — ${s.company}` : ""}
                   </option>
                 ))}
               </select>
+              {selectedBranch?.kind === "branch" && allowedSuppliers.length === 0 && (
+                <p className="text-xs text-destructive">
+                  No active supplier is assigned to this shop. Ask an administrator to configure
+                  FIROZA ENTERPRISE or assign another supplier.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Receive at *</Label>

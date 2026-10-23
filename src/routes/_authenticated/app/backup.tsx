@@ -1,9 +1,9 @@
 import { matchedCompany } from "@/lib/branding";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, Upload, RotateCcw } from "lucide-react";
+import { Download, Upload, RotateCcw, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { friendlyError } from "@/lib/format";
@@ -109,7 +109,16 @@ function BackupPage() {
   return (
     <div>
       <PageHeader title="Backup & Reset" sub="ব্যাকআপ, রিস্টোর ও রিসেট" />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <Card
+          title="Products, parties & balances"
+          icon={<Database className="h-5 w-5" />}
+          text="Review the current product, stock, customer, dealer, supplier and balance lists before replacing business data."
+        >
+          <Button variant="outline" asChild>
+            <Link to="/app/data-import">Review data import</Link>
+          </Button>
+        </Card>
         <Card
           title="Download backup"
           icon={<Download className="h-5 w-5" />}

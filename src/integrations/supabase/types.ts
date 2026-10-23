@@ -939,6 +939,7 @@ export type Database = {
         Row: {
           account_id: string;
           amount: number;
+          branch_id: string | null;
           business_id: string;
           created_at: string;
           created_by: string | null;
@@ -955,6 +956,7 @@ export type Database = {
         Insert: {
           account_id: string;
           amount: number;
+          branch_id?: string | null;
           business_id: string;
           created_at?: string;
           created_by?: string | null;
@@ -971,6 +973,7 @@ export type Database = {
         Update: {
           account_id?: string;
           amount?: number;
+          branch_id?: string | null;
           business_id?: string;
           created_at?: string;
           created_by?: string | null;
@@ -1007,6 +1010,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "customer_payments_business_branch_fkey";
+            columns: ["business_id", "branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
             foreignKeyName: "customer_payments_customer_id_fkey";
             columns: ["customer_id"];
             isOneToOne: false;
@@ -1040,6 +1050,94 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "sales";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      customer_branch_assignments: {
+        Row: {
+          assigned_by: string | null;
+          branch_id: string;
+          business_id: string;
+          created_at: string;
+          customer_id: string;
+          id: string;
+          opening_balance: number;
+        };
+        Insert: {
+          assigned_by?: string | null;
+          branch_id: string;
+          business_id: string;
+          created_at?: string;
+          customer_id: string;
+          id?: string;
+          opening_balance?: number;
+        };
+        Update: {
+          assigned_by?: string | null;
+          branch_id?: string;
+          business_id?: string;
+          created_at?: string;
+          customer_id?: string;
+          id?: string;
+          opening_balance?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_branch_assignments_business_id_branch_id_fkey";
+            columns: ["business_id", "branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
+            foreignKeyName: "customer_branch_assignments_business_id_customer_id_fkey";
+            columns: ["business_id", "customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
+            foreignKeyName: "customer_branch_assignments_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      default_shop_suppliers: {
+        Row: {
+          business_id: string;
+          configured_by: string | null;
+          supplier_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          business_id: string;
+          configured_by?: string | null;
+          supplier_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          business_id?: string;
+          configured_by?: string | null;
+          supplier_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "default_shop_suppliers_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: true;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "default_shop_suppliers_business_id_supplier_id_fkey";
+            columns: ["business_id", "supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["business_id", "id"];
           },
         ];
       };
@@ -1242,48 +1340,87 @@ export type Database = {
       };
       daily_closings: {
         Row: {
+          adjustment_total: number;
           account_id: string;
           actual: number;
+          bank_collection: number;
           business_id: string;
+          branch_id: string | null;
           cash_in: number;
+          cash_collection: number;
           cash_out: number;
           closed_by: string | null;
           closing_date: string;
+          closing_status: string;
           created_at: string;
+          difference_approved_at: string | null;
+          difference_approved_by: string | null;
+          difference_reason: string | null;
           expected: number;
           id: string;
+          mfs_collection: number;
           note: string | null;
           opening: number;
+          prepared_by: string | null;
+          refund_total: number;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
           variance: number;
         };
         Insert: {
+          adjustment_total?: number;
           account_id: string;
           actual: number;
+          bank_collection?: number;
           business_id: string;
+          branch_id?: string | null;
           cash_in: number;
+          cash_collection?: number;
           cash_out: number;
           closed_by?: string | null;
           closing_date: string;
+          closing_status?: string;
           created_at?: string;
+          difference_approved_at?: string | null;
+          difference_approved_by?: string | null;
+          difference_reason?: string | null;
           expected: number;
           id?: string;
+          mfs_collection?: number;
           note?: string | null;
           opening: number;
+          prepared_by?: string | null;
+          refund_total?: number;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
           variance: number;
         };
         Update: {
+          adjustment_total?: number;
           account_id?: string;
           actual?: number;
+          bank_collection?: number;
           business_id?: string;
+          branch_id?: string | null;
           cash_in?: number;
+          cash_collection?: number;
           cash_out?: number;
           closed_by?: string | null;
           closing_date?: string;
+          closing_status?: string;
           created_at?: string;
+          difference_approved_at?: string | null;
+          difference_approved_by?: string | null;
+          difference_reason?: string | null;
           expected?: number;
           id?: string;
+          mfs_collection?: number;
           note?: string | null;
           opening?: number;
+          prepared_by?: string | null;
+          refund_total?: number;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
           variance?: number;
         };
         Relationships: [
@@ -2481,6 +2618,7 @@ export type Database = {
           account_id: string;
           amount: number;
           business_id: string;
+          branch_id: string | null;
           created_at: string;
           created_by: string | null;
           direction: string;
@@ -2500,6 +2638,7 @@ export type Database = {
           account_id: string;
           amount: number;
           business_id: string;
+          branch_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           direction: string;
@@ -2519,6 +2658,7 @@ export type Database = {
           account_id?: string;
           amount?: number;
           business_id?: string;
+          branch_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           direction?: string;
@@ -2535,6 +2675,13 @@ export type Database = {
           txn_ref?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "money_transactions_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "money_transactions_account_id_fkey";
             columns: ["account_id"];
@@ -2600,6 +2747,52 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "businesses";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      partner_finance_branch_access: {
+        Row: {
+          branch_id: string;
+          business_id: string;
+          created_at: string;
+          granted_by: string;
+          user_id: string;
+        };
+        Insert: {
+          branch_id: string;
+          business_id: string;
+          created_at?: string;
+          granted_by?: string;
+          user_id: string;
+        };
+        Update: {
+          branch_id?: string;
+          business_id?: string;
+          created_at?: string;
+          granted_by?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "partner_finance_branch_access_business_id_branch_id_fkey";
+            columns: ["business_id", "branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
+            foreignKeyName: "partner_finance_branch_access_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "partner_finance_branch_access_business_id_user_id_fkey";
+            columns: ["business_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "business_members";
+            referencedColumns: ["business_id", "user_id"];
           },
         ];
       };
@@ -5008,6 +5201,58 @@ export type Database = {
           },
         ];
       };
+      supplier_branch_assignments: {
+        Row: {
+          assigned_at: string;
+          assigned_by: string | null;
+          branch_id: string;
+          business_id: string;
+          id: string;
+          is_default: boolean;
+          supplier_id: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          branch_id: string;
+          business_id: string;
+          id?: string;
+          is_default?: boolean;
+          supplier_id: string;
+        };
+        Update: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          branch_id?: string;
+          business_id?: string;
+          id?: string;
+          is_default?: boolean;
+          supplier_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "supplier_branch_assignments_business_id_branch_id_fkey";
+            columns: ["business_id", "branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
+            foreignKeyName: "supplier_branch_assignments_business_id_supplier_id_fkey";
+            columns: ["business_id", "supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["business_id", "id"];
+          },
+          {
+            foreignKeyName: "supplier_branch_assignments_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tasks: {
         Row: {
           assigned_to: string | null;
@@ -5414,6 +5659,69 @@ export type Database = {
           },
         ];
       };
+      customer_branch_balances: {
+        Row: {
+          branch_id: string | null;
+          business_id: string | null;
+          business_name: string | null;
+          credit_limit: number | null;
+          current_due: number | null;
+          customer_id: string | null;
+          last_payment: string | null;
+          last_sale: string | null;
+          mobile: string | null;
+          name: string | null;
+          opening_balance: number | null;
+          payment_terms_days: number | null;
+          payments_total: number | null;
+          price_level: Database["public"]["Enums"]["price_level"] | null;
+          returns_total: number | null;
+          sales_total: number | null;
+          status: Database["public"]["Enums"]["record_status"] | null;
+          type: Database["public"]["Enums"]["customer_type"] | null;
+        };
+        Insert: {
+          branch_id?: string | null;
+          business_id?: string | null;
+          business_name?: string | null;
+          credit_limit?: number | null;
+          current_due?: never;
+          customer_id?: string | null;
+          last_payment?: never;
+          last_sale?: never;
+          mobile?: string | null;
+          name?: string | null;
+          opening_balance?: number | null;
+          payment_terms_days?: number | null;
+          payments_total?: never;
+          price_level?: Database["public"]["Enums"]["price_level"] | null;
+          returns_total?: never;
+          sales_total?: never;
+          status?: Database["public"]["Enums"]["record_status"] | null;
+          type?: Database["public"]["Enums"]["customer_type"] | null;
+        };
+        Update: {
+          branch_id?: string | null;
+          business_id?: string | null;
+          business_name?: string | null;
+          credit_limit?: number | null;
+          current_due?: never;
+          customer_id?: string | null;
+          last_payment?: never;
+          last_sale?: never;
+          mobile?: string | null;
+          name?: string | null;
+          opening_balance?: number | null;
+          payment_terms_days?: number | null;
+          payments_total?: never;
+          price_level?: Database["public"]["Enums"]["price_level"] | null;
+          returns_total?: never;
+          sales_total?: never;
+          status?: Database["public"]["Enums"]["record_status"] | null;
+          type?: Database["public"]["Enums"]["customer_type"] | null;
+        };
+        Relationships: [];
+      };
       dealer_outstanding: {
         Row: {
           business_id: string | null;
@@ -5456,6 +5764,7 @@ export type Database = {
           balance: number | null;
           bank_branch: string | null;
           bank_name: string | null;
+          branch_id: string | null;
           business_id: string | null;
           id: string | null;
           kind: Database["public"]["Enums"]["money_kind"] | null;
@@ -5468,6 +5777,7 @@ export type Database = {
           balance?: never;
           bank_branch?: string | null;
           bank_name?: string | null;
+          branch_id?: string | null;
           business_id?: string | null;
           id?: string | null;
           kind?: Database["public"]["Enums"]["money_kind"] | null;
@@ -5480,6 +5790,7 @@ export type Database = {
           balance?: never;
           bank_branch?: string | null;
           bank_name?: string | null;
+          branch_id?: string | null;
           business_id?: string | null;
           id?: string | null;
           kind?: Database["public"]["Enums"]["money_kind"] | null;
@@ -5716,10 +6027,16 @@ export type Database = {
           _account: string;
           _actual: number;
           _biz: string;
+          _branch: string;
           _date: string;
+          _difference_reason: string;
           _note: string;
         };
         Returns: string;
+      };
+      review_daily_closing: {
+        Args: { _biz: string; _closing: string };
+        Returns: undefined;
       };
       complete_backup: {
         Args: {
@@ -5777,6 +6094,10 @@ export type Database = {
         };
         Returns: string;
       };
+      create_customer_for_branch: {
+        Args: { _biz: string; _branch: string; _data: Json };
+        Returns: string;
+      };
       create_emi_sale_full: {
         Args: { _biz: string; _data: Json; _emi: Json };
         Returns: Json;
@@ -5811,6 +6132,10 @@ export type Database = {
           _total_records: number;
         };
         Returns: string;
+      };
+      preview_legacy_operational_import: {
+        Args: { _biz: string; _data: Json };
+        Returns: Json;
       };
       create_manual_journal: {
         Args: { _biz: string; _date: string; _lines: Json; _memo: string };
@@ -5865,6 +6190,18 @@ export type Database = {
       create_stock_transfer: {
         Args: { _biz: string; _data: Json };
         Returns: string;
+      };
+      assign_customer_to_branch: {
+        Args: { _biz: string; _branch: string; _customer: string };
+        Returns: undefined;
+      };
+      assign_supplier_to_shop: {
+        Args: { _biz: string; _branch: string; _supplier: string };
+        Returns: undefined;
+      };
+      set_default_shop_supplier: {
+        Args: { _biz: string; _supplier: string };
+        Returns: undefined;
       };
       create_task: {
         Args: {
@@ -6197,6 +6534,20 @@ export type Database = {
           _account: string;
           _amount: number;
           _biz: string;
+          _customer: string;
+          _date: string;
+          _method: Database["public"]["Enums"]["payment_method"];
+          _note: string;
+          _txn_ref: string;
+        };
+        Returns: string;
+      };
+      receive_customer_payment_for_branch: {
+        Args: {
+          _account: string;
+          _amount: number;
+          _biz: string;
+          _branch: string;
           _customer: string;
           _date: string;
           _method: Database["public"]["Enums"]["payment_method"];

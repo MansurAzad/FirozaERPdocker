@@ -34,6 +34,7 @@ import { Route as AuthenticatedAppCourierRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAppCustomerPortalRouteImport } from './routes/_authenticated/app/customer-portal'
 import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated/app/customers'
 import { Route as AuthenticatedAppDailyReportsRouteImport } from './routes/_authenticated/app/daily-reports'
+import { Route as AuthenticatedAppDataImportRouteImport } from './routes/_authenticated/app/data-import'
 import { Route as AuthenticatedAppDeadSlowStockRouteImport } from './routes/_authenticated/app/dead-slow-stock'
 import { Route as AuthenticatedAppDealersRouteImport } from './routes/_authenticated/app/dealers'
 import { Route as AuthenticatedAppDueCollectionRouteImport } from './routes/_authenticated/app/due-collection'
@@ -226,6 +227,12 @@ const AuthenticatedAppDailyReportsRoute =
   AuthenticatedAppDailyReportsRouteImport.update({
     id: '/daily-reports',
     path: '/daily-reports',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppDataImportRoute =
+  AuthenticatedAppDataImportRouteImport.update({
+    id: '/data-import',
+    path: '/data-import',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
 const AuthenticatedAppDeadSlowStockRoute =
@@ -581,6 +588,7 @@ export interface FileRoutesByFullPath {
   '/app/customer-portal': typeof AuthenticatedAppCustomerPortalRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/daily-reports': typeof AuthenticatedAppDailyReportsRoute
+  '/app/data-import': typeof AuthenticatedAppDataImportRoute
   '/app/dead-slow-stock': typeof AuthenticatedAppDeadSlowStockRoute
   '/app/dealers': typeof AuthenticatedAppDealersRoute
   '/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
@@ -663,6 +671,7 @@ export interface FileRoutesByTo {
   '/app/customer-portal': typeof AuthenticatedAppCustomerPortalRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/daily-reports': typeof AuthenticatedAppDailyReportsRoute
+  '/app/data-import': typeof AuthenticatedAppDataImportRoute
   '/app/dead-slow-stock': typeof AuthenticatedAppDeadSlowStockRoute
   '/app/dealers': typeof AuthenticatedAppDealersRoute
   '/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
@@ -748,6 +757,7 @@ export interface FileRoutesById {
   '/_authenticated/app/customer-portal': typeof AuthenticatedAppCustomerPortalRoute
   '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRoute
   '/_authenticated/app/daily-reports': typeof AuthenticatedAppDailyReportsRoute
+  '/_authenticated/app/data-import': typeof AuthenticatedAppDataImportRoute
   '/_authenticated/app/dead-slow-stock': typeof AuthenticatedAppDeadSlowStockRoute
   '/_authenticated/app/dealers': typeof AuthenticatedAppDealersRoute
   '/_authenticated/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
@@ -833,6 +843,7 @@ export interface FileRouteTypes {
     | '/app/customer-portal'
     | '/app/customers'
     | '/app/daily-reports'
+    | '/app/data-import'
     | '/app/dead-slow-stock'
     | '/app/dealers'
     | '/app/due-collection'
@@ -915,6 +926,7 @@ export interface FileRouteTypes {
     | '/app/customer-portal'
     | '/app/customers'
     | '/app/daily-reports'
+    | '/app/data-import'
     | '/app/dead-slow-stock'
     | '/app/dealers'
     | '/app/due-collection'
@@ -999,6 +1011,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/customer-portal'
     | '/_authenticated/app/customers'
     | '/_authenticated/app/daily-reports'
+    | '/_authenticated/app/data-import'
     | '/_authenticated/app/dead-slow-stock'
     | '/_authenticated/app/dealers'
     | '/_authenticated/app/due-collection'
@@ -1243,6 +1256,13 @@ declare module '@tanstack/react-router' {
       path: '/daily-reports'
       fullPath: '/app/daily-reports'
       preLoaderRoute: typeof AuthenticatedAppDailyReportsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/data-import': {
+      id: '/_authenticated/app/data-import'
+      path: '/data-import'
+      fullPath: '/app/data-import'
+      preLoaderRoute: typeof AuthenticatedAppDataImportRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/_authenticated/app/dead-slow-stock': {
@@ -1665,6 +1685,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppCustomerPortalRoute: typeof AuthenticatedAppCustomerPortalRoute
   AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRoute
   AuthenticatedAppDailyReportsRoute: typeof AuthenticatedAppDailyReportsRoute
+  AuthenticatedAppDataImportRoute: typeof AuthenticatedAppDataImportRoute
   AuthenticatedAppDeadSlowStockRoute: typeof AuthenticatedAppDeadSlowStockRoute
   AuthenticatedAppDealersRoute: typeof AuthenticatedAppDealersRoute
   AuthenticatedAppDueCollectionRoute: typeof AuthenticatedAppDueCollectionRoute
@@ -1743,6 +1764,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppCustomerPortalRoute: AuthenticatedAppCustomerPortalRoute,
   AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRoute,
   AuthenticatedAppDailyReportsRoute: AuthenticatedAppDailyReportsRoute,
+  AuthenticatedAppDataImportRoute: AuthenticatedAppDataImportRoute,
   AuthenticatedAppDeadSlowStockRoute: AuthenticatedAppDeadSlowStockRoute,
   AuthenticatedAppDealersRoute: AuthenticatedAppDealersRoute,
   AuthenticatedAppDueCollectionRoute: AuthenticatedAppDueCollectionRoute,

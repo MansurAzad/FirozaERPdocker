@@ -77,15 +77,20 @@ function QuotationForm() {
     "";
 
   const custs = useQuery({
-    queryKey: ["quote-customers", business.id],
+    queryKey: ["quote-customers", business.id, br],
+    enabled: Boolean(br),
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("customers")
-        .select("id,name,business_name,mobile,price_level")
+        .from("customer_branch_balances")
+        .select("customer_id,name,business_name,mobile,price_level")
         .eq("business_id", business.id)
+        .eq("branch_id", br)
+        .eq("status", "active")
         .order("name");
       if (error) throw error;
-      return data;
+      return data.flatMap((customer) =>
+        customer.customer_id ? [{ ...customer, id: customer.customer_id }] : [],
+      );
     },
   });
 

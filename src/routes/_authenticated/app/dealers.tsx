@@ -1,12 +1,12 @@
 import { matchedCompany } from "@/lib/branding";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
-import { useMoneyAccounts } from "@/lib/finance";
+import { useBranches, useMoneyAccounts } from "@/lib/finance";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, METHODS, Stat, methodLabel, selectCls, today, type Method } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,6 @@ import {
   type ExcelRecord,
 } from "@/components/erp/ExcelDataTools";
 import { hasAccess } from "@/lib/access-control";
-import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/app/dealers")({
   head: ({ matches }) => ({
@@ -67,28 +66,64 @@ const DEALER_STATUS = [
 ];
 
 function Dealers() {
-  const { business, role, access } = useBusiness();
+  const { business, role, access, userId } = useBusiness();
   const qc = useQueryClient();
   const canEdit = role === "owner" || role === "manager" || role === "accountant";
   const canCollect = canEdit || role === "salesman" || role === "branch_manager";
   const accounts = useMoneyAccounts(business.id);
+  const branches = useBranches(business.id);
+  const branchAccess = useQuery({
+    queryKey: ["dealer-branch-access", business.id, userId],
+    enabled: !canEdit,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_finance_branch_access")
+        .select("branch_id")
+        .eq("business_id", business.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data.map((entry) => entry.branch_id);
+    },
+  });
+  const availableBranches = (branches.data ?? []).filter(
+    (branch) =>
+      branch.kind === "branch" && (canEdit || (branchAccess.data ?? []).includes(branch.id)),
+  );
+  const [branchId, setBranchId] = useState("");
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"dealers" | "payments">("dealers");
   const [credit, setCredit] = useState<{ id: string; name: string } | null>(null);
   const [selectedDealer, setSelectedDealer] = useState<(typeof rows)[number] | null>(null);
   const [cf, setCf] = useState<Record<string, string>>({});
-  const [pay, setPay] = useState<{ id: string; name: string; due: number } | null>(null);
+  const [pay, setPay] = useState<{
+    id: string;
+    name: string;
+    due: number;
+    branchId: string;
+  } | null>(null);
   const [pf, setPf] = useState<Record<string, string>>({});
+  const collectingBranchId = pay?.branchId ?? branchId;
+  const branchAccounts = (accounts.data ?? []).filter(
+    (account) =>
+      account.status === "active" &&
+      (account.branch_id == null || account.branch_id === collectingBranchId),
+  );
+  useEffect(() => {
+    if (!availableBranches.some((branch) => branch.id === branchId))
+      setBranchId(availableBranches[0]?.id ?? "");
+  }, [availableBranches, branchId]);
 
   const balances = useQuery({
-    queryKey: ["dealer-balances", business.id],
+    queryKey: ["dealer-balances", business.id, branchId],
+    enabled: Boolean(branchId),
     queryFn: async () => {
       const all = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabase
-          .from("customer_balances")
+          .from("customer_branch_balances")
           .select("*")
           .eq("business_id", business.id)
+          .eq("branch_id", branchId)
           .in("type", [...DEALER_TYPES])
           .order("name")
           .order("customer_id", { ascending: true })
@@ -145,15 +180,16 @@ function Dealers() {
   );
 
   const payments = useQuery({
-    queryKey: ["dealer-payments", business.id, dealerIds.length],
-    enabled: dealerIds.length > 0,
+    queryKey: ["dealer-payments", business.id, branchId, dealerIds.length],
+    enabled: Boolean(branchId) && dealerIds.length > 0,
     queryFn: async () => {
       const all = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabase
           .from("customer_payments")
-          .select("id, amount, method, txn_ref, paid_on, notes, customer_id, account_id")
+          .select("id, amount, method, txn_ref, paid_on, notes, customer_id, account_id, branch_id")
           .eq("business_id", business.id)
+          .eq("branch_id", branchId)
           .in("customer_id", dealerIds)
           .order("paid_on", { ascending: false })
           .order("id", { ascending: true })
@@ -316,18 +352,19 @@ function Dealers() {
           .trim()
           .toLowerCase() || "dealer";
       try {
-        const { data: customer, error } = await supabase
-          .from("customers")
-          .insert({
-            business_id: business.id,
+        if (!branchId) throw new Error("Select a shop before importing dealers.");
+        const { data: customerId, error } = await supabase.rpc("create_customer_for_branch", {
+          _biz: business.id,
+          _branch: branchId,
+          _data: {
             name: String(row.name).trim(),
             mobile,
             business_name: String(row.business_name ?? "").trim() || null,
             alt_mobile: String(row.alt_mobile ?? "").trim() || null,
-            type: type as Database["public"]["Enums"]["customer_type"],
+            type,
             credit_limit: creditLimit,
             payment_terms_days: terms,
-            price_level: priceLevel as Database["public"]["Enums"]["price_level"],
+            price_level: priceLevel,
             dealer_discount: Number(row.dealer_discount || 0),
             dealer_level: String(row.dealer_level ?? "").trim() || null,
             dealer_type: String(row.dealer_type ?? "").trim() || null,
@@ -335,13 +372,13 @@ function Dealers() {
             nid: String(row.nid ?? "").trim() || null,
             trade_license: String(row.trade_license ?? "").trim() || null,
             notes: String(row.notes ?? "").trim() || null,
-          })
-          .select("id")
-          .single();
+          },
+        });
         if (error) throw error;
+        if (!customerId) throw new Error("Customer was not created.");
         const { error: creditError } = await supabase.rpc("set_dealer_credit", {
           _biz: business.id,
-          _customer: customer.id,
+          _customer: customerId,
           _credit_limit: creditLimit,
           _payment_terms_days: terms,
           _status: status,
@@ -397,6 +434,7 @@ function Dealers() {
       const matchingAccounts = (accounts.data ?? []).filter(
         (item) =>
           item.status === "active" &&
+          (item.branch_id == null || item.branch_id === branchId) &&
           (item.name ?? "").trim().toLowerCase() === String(row.account).trim().toLowerCase(),
       );
       if (!dealer?.customer_id || matchingAccounts.length !== 1) {
@@ -404,7 +442,8 @@ function Dealers() {
         continue;
       }
       try {
-        const { error } = await supabase.rpc("receive_customer_payment", {
+        const { error } = await supabase.rpc("receive_customer_payment_for_branch", {
+          _branch: branchId,
           _biz: business.id,
           _customer: dealer.customer_id,
           _account: matchingAccounts[0]!.id!,
@@ -458,10 +497,11 @@ function Dealers() {
 
   const receive = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("receive_customer_payment", {
+      const { error } = await supabase.rpc("receive_customer_payment_for_branch", {
+        _branch: pay!.branchId,
         _biz: business.id,
         _customer: pay!.id,
-        _account: pf["account"] || accounts.data?.[0]?.id || "",
+        _account: pf["account"] || branchAccounts[0]?.id || "",
         _amount: Number(pf["amount"] || 0),
         _date: pf["date"] ?? today(),
         _method: (pf["method"] ?? "cash") as Method,
@@ -487,7 +527,7 @@ function Dealers() {
           <>
             <ExcelDataTools
               canExport={hasAccess(access, "dealers", "export") && !!balances.data}
-              canImport={canImportDealers && !!balances.data && !!credits.data}
+              canImport={canImportDealers && Boolean(branchId) && !!balances.data && !!credits.data}
               importLabel="Import dealers"
               exports={[
                 {
@@ -529,13 +569,41 @@ function Dealers() {
                 onImport: importDealers,
               }}
             />
+            <div className="mb-4">
+              <label className="flex flex-wrap items-center gap-2 text-sm">
+                <span>Brand shop</span>
+                <select
+                  className={selectCls}
+                  value={branchId}
+                  onChange={(event) => setBranchId(event.target.value)}
+                >
+                  {availableBranches.length === 0 && <option value="">No assigned shop</option>}
+                  {availableBranches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(branches.error || branchAccess.error) && (
+                <p className="mt-2 text-sm text-destructive">
+                  {friendlyError(branches.error ?? branchAccess.error)}
+                </p>
+              )}
+            </div>
             <ExcelDataTools
               canExport={
                 hasAccess(access, "dealers", "export") &&
                 hasAccess(access, "cash_bank", "view") &&
                 !!payments.data
               }
-              canImport={canImportPayments && !!balances.data && !!payments.data && !!accounts.data}
+              canImport={
+                canImportPayments &&
+                Boolean(branchId) &&
+                !!balances.data &&
+                !!payments.data &&
+                !!accounts.data
+              }
               importLabel="Import payments"
               exports={[
                 {
@@ -773,7 +841,11 @@ function Dealers() {
                 <Button asChild variant="outline">
                   <Link
                     to="/app/ledger"
-                    search={{ kind: "customer", party: String(selectedDealer.customer_id) }}
+                    search={{
+                      kind: "customer",
+                      party: String(selectedDealer.customer_id),
+                      branch: branchId,
+                    }}
                   >
                     Ledger
                   </Link>
@@ -809,6 +881,7 @@ function Dealers() {
                       id: selectedDealer.customer_id!,
                       name: selectedDealer.name!,
                       due: Number(selectedDealer.current_due ?? 0),
+                      branchId: selectedDealer.branch_id!,
                     });
                     setSelectedDealer(null);
                   }}
@@ -912,13 +985,11 @@ function Dealers() {
                 value={pf["account"] ?? ""}
                 onChange={(e) => setPf({ ...pf, account: e.target.value })}
               >
-                {accounts.data
-                  ?.filter((a) => a.status === "active")
-                  .map((a) => (
-                    <option key={a.id!} value={a.id!}>
-                      {a.name}
-                    </option>
-                  ))}
+                {branchAccounts.map((a) => (
+                  <option key={a.id!} value={a.id!}>
+                    {a.name}
+                  </option>
+                ))}
               </select>
             </F>
             <F label="Date">

@@ -105,33 +105,29 @@ function EmiNew() {
     "";
 
   const custs = useQuery({
-    queryKey: ["customer_balances", business.id],
+    queryKey: ["customer_branch_balances", business.id, br],
+    enabled: Boolean(br),
     queryFn: async () => {
-      const bq = await supabase
-        .from("customer_balances")
+      const { data, error } = await supabase
+        .from("customer_branch_balances")
         .select("*")
         .eq("business_id", business.id)
+        .eq("branch_id", br)
+        .eq("status", "active")
         .order("name");
-      if (bq.error) throw bq.error;
-      const cq = await supabase
-        .from("customers")
-        .select("id,status")
-        .eq("business_id", business.id);
-      if (cq.error) throw cq.error;
-      const cm = new Map(
-        (cq.data || []).map((x: { id: string; status?: string | null }) => [x.id, x]),
+      if (error) throw error;
+      return data.flatMap((row) =>
+        row.customer_id
+          ? [
+              {
+                customer_id: row.customer_id,
+                name: row.name ?? "",
+                mobile: row.mobile,
+                current_due: row.current_due,
+              },
+            ]
+          : [],
       );
-      return (bq.data || []).flatMap((x) => {
-        if (!x.customer_id || cm.get(x.customer_id)?.status !== "active") return [];
-        return [
-          {
-            customer_id: x.customer_id,
-            name: x.name ?? "",
-            mobile: x.mobile,
-            current_due: x.current_due,
-          },
-        ];
-      });
     },
   });
 
