@@ -75,26 +75,40 @@ import {
   type AccessMatrix,
 } from "@/lib/access-control";
 
+type Membership = { business: Business; role: Role };
+type SupabaseMembershipRow = {
+  role: Role;
+  business?: Business | null;
+  businesses?: Business | null;
+};
+
+export function normalizeBusinessMemberships(
+  rows: SupabaseMembershipRow[] | null | undefined,
+): Membership[] {
+  return (rows ?? []).flatMap((membership) => {
+    const business = membership.business ?? membership.businesses;
+    if (!business) return [];
+    return [{ business, role: membership.role as Role }];
+  });
+}
+
 export const Route = createFileRoute("/_authenticated/app")({
   beforeLoad: async ({ context }) => {
-    type Membership = { business: Business; role: Role };
     const membershipsKey = ["offline-business-memberships", context.user.id] as const;
     let memberships = context.queryClient.getQueryData<Membership[]>(membershipsKey);
     if (typeof navigator === "undefined" || navigator.onLine || !memberships) {
       const { data, error } = await supabase
         .from("business_members")
-        .select("role, businesses(id,name,phone,address,currency,type)")
+        .select(
+          "role, business:businesses!business_members_business_id_fkey(id,name,phone,address,currency,type)",
+        )
         .eq("user_id", context.user.id)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true });
       if (error) {
         if (typeof navigator === "undefined" || navigator.onLine || !memberships) throw error;
       } else {
-        memberships = (data ?? []).flatMap((membership) =>
-          membership.businesses
-            ? [{ business: membership.businesses, role: membership.role as Role }]
-            : [],
-        );
+        memberships = normalizeBusinessMemberships(data as SupabaseMembershipRow[] | null);
         context.queryClient.setQueryData(membershipsKey, memberships);
       }
     }
