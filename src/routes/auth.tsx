@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -43,16 +43,21 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const redirectStarted = useRef(false);
 
   useEffect(() => {
     if (entry) sessionStorage.setItem("firoza.entry", entry);
-    const proceed = () =>
-      navigate({ to: entryDestination(pendingEntry() ?? "house"), replace: true });
+    const proceed = () => {
+      if (redirectStarted.current) return;
+      redirectStarted.current = true;
+      void navigate({ to: entryDestination(pendingEntry() ?? "house"), replace: true });
+    };
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) proceed();
     });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) proceed();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" || !session) return;
+      window.setTimeout(proceed, 0);
     });
     return () => data.subscription.unsubscribe();
   }, [navigate, entry]);

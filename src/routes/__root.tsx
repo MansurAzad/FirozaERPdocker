@@ -155,21 +155,23 @@ function RootComponent() {
       console.error("[Offline cache] Failed to remove the old unscoped cache:", error);
     });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        void clearOfflineQueryCache(queryClient).catch((error: unknown) => {
-          console.error("[Offline cache] Failed to clear local data after sign-out:", error);
-        });
-      } else if (
-        session &&
-        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
-      ) {
-        void restoreOfflineQueryCache(queryClient, session.user.id).catch((error: unknown) => {
-          console.error("[Offline cache] Failed to restore local data:", error);
-        });
-      }
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      window.setTimeout(() => {
+        if (event === "SIGNED_OUT") {
+          void clearOfflineQueryCache(queryClient).catch((error: unknown) => {
+            console.error("[Offline cache] Failed to clear local data after sign-out:", error);
+          });
+        } else if (
+          session &&
+          (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
+        ) {
+          void restoreOfflineQueryCache(queryClient, session.user.id).catch((error: unknown) => {
+            console.error("[Offline cache] Failed to restore local data:", error);
+          });
+        }
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        void router.invalidate();
+        if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
+      }, 0);
     });
     return () => {
       data.subscription.unsubscribe();
