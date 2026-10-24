@@ -31,12 +31,13 @@ await writeFile(
 const result = await generateSW({
   globDirectory: clientDirectory,
   globPatterns: ["**/*.{js,css,png,svg,woff2,webmanifest}"],
+  globIgnores: ["**/*.map", "**/favicon.ico"],
   swDest: serviceWorkerDestination,
   importScripts: ["/offline-shell.js"],
   clientsClaim: true,
   skipWaiting: true,
   cleanupOutdatedCaches: true,
-  maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+  maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
   runtimeCaching: [
     {
       urlPattern: ({ request, url }) =>

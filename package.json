@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node scripts/local/finalize-offline-build.mjs",
-    "build:dev": "vite build --mode development",
+    "build": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build && node scripts/local/finalize-offline-build.mjs",
+    "build:dev": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build --mode development",
     "tauri:build": "tauri build",
     "tauri:build:ci": "tauri build --config src-tauri/tauri.ci.conf.json",
     "db:apply-daily-summary": "supabase db query --linked --file drizzle/migrations/0050_optimize_daily_summary.sql",
