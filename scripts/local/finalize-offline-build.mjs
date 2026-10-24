@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateSW } from "workbox-build";
@@ -7,6 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const clientDirectory = resolve(root, ".output/public");
 const serviceWorkerDirectory = resolve(clientDirectory, "offline-shell.js");
 const serviceWorkerDestination = resolve(clientDirectory, "sw.js");
+const vercelStaticDirectory = resolve(root, ".vercel/output/static");
 
 await mkdir(clientDirectory, { recursive: true });
 await writeFile(
@@ -72,5 +73,12 @@ const result = await generateSW({
 if (result.count === 0) {
   throw new Error("The offline service worker did not precache any client assets.");
 }
+
+await mkdir(vercelStaticDirectory, { recursive: true });
+await Promise.all(
+  ["sw.js", "offline-shell.js"].map((file) =>
+    copyFile(resolve(clientDirectory, file), resolve(vercelStaticDirectory, file)),
+  ),
+);
 
 console.log(`Generated offline service worker with ${result.count} precached assets.`);
