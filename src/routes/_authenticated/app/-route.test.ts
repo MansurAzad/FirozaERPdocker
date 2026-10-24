@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBusinessMemberships } from "./route";
+import { normalizeBusinessMemberships } from "@/lib/business-memberships";
 
 describe("business membership normalization", () => {
   it("accepts both aliased and legacy business joins from Supabase", () => {
@@ -26,7 +26,7 @@ describe("business membership normalization", () => {
           type: "shop",
         },
       },
-    ] as any);
+    ] as Parameters<typeof normalizeBusinessMemberships>[0]);
 
     expect(normalized).toHaveLength(2);
     expect(normalized[0]).toMatchObject({ business: { id: "biz-1" }, role: "owner" });

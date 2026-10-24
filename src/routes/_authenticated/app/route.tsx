@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BusinessProvider, type Business, type Role, useBusiness } from "@/lib/business";
+import { normalizeBusinessMemberships, type Membership } from "@/lib/business-memberships";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { friendlyError, ROLE_LABELS } from "@/lib/format";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -75,23 +76,6 @@ import {
   type AccessMatrix,
 } from "@/lib/access-control";
 
-type Membership = { business: Business; role: Role };
-type SupabaseMembershipRow = {
-  role: Role;
-  business?: Business | null;
-  businesses?: Business | null;
-};
-
-export function normalizeBusinessMemberships(
-  rows: SupabaseMembershipRow[] | null | undefined,
-): Membership[] {
-  return (rows ?? []).flatMap((membership) => {
-    const business = membership.business ?? membership.businesses;
-    if (!business) return [];
-    return [{ business, role: membership.role as Role }];
-  });
-}
-
 export const Route = createFileRoute("/_authenticated/app")({
   beforeLoad: async ({ context }) => {
     const membershipsKey = ["offline-business-memberships", context.user.id] as const;
@@ -108,7 +92,7 @@ export const Route = createFileRoute("/_authenticated/app")({
       if (error) {
         if (typeof navigator === "undefined" || navigator.onLine || !memberships) throw error;
       } else {
-        memberships = normalizeBusinessMemberships(data as SupabaseMembershipRow[] | null);
+        memberships = normalizeBusinessMemberships(data as Membership[] | null);
         context.queryClient.setQueryData(membershipsKey, memberships);
       }
     }
@@ -291,17 +275,22 @@ function SidebarNav({
 function AppLayout() {
   const { business: initialBusiness, role, user, memberships } = Route.useRouteContext();
   const { data: business = initialBusiness } = useQuery({
-    queryKey: ["business-identity", initialBusiness.id],
+    queryKey: ["business-identity", initialBusiness.id, user.id],
     initialData: initialBusiness,
     refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("businesses")
-        .select("id,name,phone,address,currency,type")
-        .eq("id", initialBusiness.id)
+        .from("business_members")
+        .select(
+          "business:businesses!business_members_business_id_fkey(id,name,phone,address,currency,type)",
+        )
+        .eq("business_id", initialBusiness.id)
+        .eq("user_id", user.id)
         .single();
       if (error) throw error;
-      return data;
+      const business = data.business as unknown as Business | null;
+      if (!business) throw new Error("The active business is no longer available to this user.");
+      return business;
     },
   });
   const {
