@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build and upload
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -34,7 +40,8 @@ jobs:
       - name: Verify tagged release version
         shell: pwsh
         run: |
-          $tagVersion = "${{ github.ref_name }}".Substring(1)
+          $releaseTag = "${{ inputs.release_tag || github.ref_name }}"
+          $tagVersion = $releaseTag.Substring(1)
           $appVersion = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $cargoVersion = [regex]::Match(
             (Get-Content src-tauri/Cargo.toml -Raw),
@@ -49,11 +56,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: FIROZA ENTERPRISE ${{ github.ref_name }}
+          tagName: ${{ inputs.release_tag || github.ref_name }}
+          releaseName: FIROZA ENTERPRISE ${{ inputs.release_tag || github.ref_name }}
           releaseBody: Windows NSIS installer for direct download. This installer is not code-signed.
           releaseDraft: false
           prerelease: false
           args: --config src-tauri/tauri.ci.conf.json
           uploadUpdaterJson: false
           uploadUpdaterSignatures: false
+
+      - name: Preserve Windows installer for release recovery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-${{ inputs.release_tag || github.ref_name }}
+          path: src-tauri/target/release/bundle/nsis/*_x64-setup.exe
+          if-no-files-found: warn
+          retention-days: 1
