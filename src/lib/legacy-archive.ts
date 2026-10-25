@@ -1,3 +1,5 @@
+import { generateId } from "./uuid";
+
 export type LegacyArchiveRecord = Record<string, string>;
 
 export type LegacyArchiveFile = {
@@ -313,7 +315,7 @@ function clean(value: string | undefined): string {
 }
 
 function id(): string {
-  return globalThis.crypto.randomUUID();
+  return generateId();
 }
 
 const SYSTEM_ACCOUNTS = [

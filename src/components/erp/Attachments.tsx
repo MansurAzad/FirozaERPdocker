@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { friendlyError } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { generateId } from "@/lib/uuid";
 import { Button } from "@/components/ui/button";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -56,7 +57,7 @@ export function Attachments({
       if (file.size > MAX_BYTES) throw new Error("File is larger than 10 MB.");
       const dot = file.name.lastIndexOf(".");
       const ext = dot > 0 ? file.name.slice(dot) : "";
-      const path = `${business.id}/${recordType}/${recordId}/${crypto.randomUUID()}${ext}`;
+      const path = `${business.id}/${recordType}/${recordId}/${generateId()}${ext}`;
       const { error: upErr } = await supabase.storage.from("attachments").upload(path, file, {
         upsert: false,
         contentType: file.type || "application/octet-stream",

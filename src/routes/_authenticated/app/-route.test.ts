@@ -12,7 +12,7 @@ describe("business membership normalization", () => {
           phone: "123",
           address: "Main",
           currency: "BDT",
-          type: "dealer",
+          type: "retail",
         },
       },
       {
@@ -23,7 +23,7 @@ describe("business membership normalization", () => {
           phone: "456",
           address: "Second",
           currency: "BDT",
-          type: "shop",
+          type: "wholesale",
         },
       },
     ] as Parameters<typeof normalizeBusinessMemberships>[0]);

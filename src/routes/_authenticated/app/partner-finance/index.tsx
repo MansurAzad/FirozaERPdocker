@@ -16,6 +16,7 @@ import { useBusiness } from "@/lib/business";
 import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
 import { calculatePartnerFinanceDownpayment } from "@/lib/partner-finance";
+import { generateId } from "@/lib/uuid";
 
 export const Route = createFileRoute("/_authenticated/app/partner-finance/")({
   head: ({ matches }) => ({
@@ -571,7 +572,7 @@ function PartnerFinance() {
       const net = Number(grossAmount) - Number(feeAmount || 0) + Number(adjustmentAmount || 0);
       if (!Number.isFinite(net) || net <= 0)
         throw new Error("Net settlement must be greater than zero.");
-      const idempotencyKey = settlementIdempotencyKey || crypto.randomUUID();
+      const idempotencyKey = settlementIdempotencyKey || generateId();
       setSettlementIdempotencyKey(idempotencyKey);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).rpc("record_partner_settlement", {
@@ -708,7 +709,7 @@ function PartnerFinance() {
     mutationFn: async () => {
       if (!selectedInstallment || !paymentAccountId || Number(paymentAmount) <= 0)
         throw new Error("Select an installment, account and positive payment amount.");
-      const idempotencyKey = paymentIdempotencyKey || crypto.randomUUID();
+      const idempotencyKey = paymentIdempotencyKey || generateId();
       setPaymentIdempotencyKey(idempotencyKey);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).rpc("receive_partner_finance_installment", {
@@ -739,7 +740,7 @@ function PartnerFinance() {
         !refundReason.trim()
       )
         throw new Error("Select a payment, refund account, amount and reason.");
-      const idempotencyKey = refundIdempotencyKey || crypto.randomUUID();
+      const idempotencyKey = refundIdempotencyKey || generateId();
       setRefundIdempotencyKey(idempotencyKey);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).rpc("refund_partner_finance_payment", {
@@ -773,7 +774,7 @@ function PartnerFinance() {
       ) {
         throw new Error("Select a down-payment receipt, refund account, amount and reason.");
       }
-      const idempotencyKey = downpaymentRefundIdempotencyKey || crypto.randomUUID();
+      const idempotencyKey = downpaymentRefundIdempotencyKey || generateId();
       setDownpaymentRefundIdempotencyKey(idempotencyKey);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).rpc("refund_partner_finance_downpayment", {
@@ -800,7 +801,7 @@ function PartnerFinance() {
     mutationFn: async () => {
       if (!selectedInstallment || Number(waiverAmount) <= 0 || !waiverReason.trim())
         throw new Error("Select an installment and provide a positive adjustment with a reason.");
-      const idempotencyKey = waiverIdempotencyKey || crypto.randomUUID();
+      const idempotencyKey = waiverIdempotencyKey || generateId();
       setWaiverIdempotencyKey(idempotencyKey);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).rpc("waive_partner_finance_installment", {
@@ -2267,7 +2268,7 @@ function PartnerFinance() {
                             setReversingSettlementId(line.id);
                             setSettlementReversalReason("");
                             setSettlementReversalDate(today());
-                            setSettlementReversalKey(crypto.randomUUID());
+                            setSettlementReversalKey(generateId());
                           }}
                         >
                           Reverse

@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { generateId } from "@/lib/uuid";
 
 function sessionId() {
   let id = sessionStorage.getItem("firoza.visit-session");
   if (!id) {
-    id = crypto.randomUUID();
+    id = generateId();
     sessionStorage.setItem("firoza.visit-session", id);
   }
   return id;

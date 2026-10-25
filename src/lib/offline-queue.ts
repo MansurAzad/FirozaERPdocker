@@ -3,6 +3,7 @@
 // re-check stock, IMEI and balances on replay, so conflicting entries are rejected, not merged.
 import { get, set } from "idb-keyval";
 import { supabase } from "@/integrations/supabase/client";
+import { generateId } from "@/lib/uuid";
 
 export type QueuedWrite = {
   id: string;
@@ -128,7 +129,7 @@ async function enqueue(url: string, init: RequestInit) {
     if (!SKIP_HEADERS.has(k)) h[k] = v;
   });
   const item: QueuedWrite = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     at: new Date().toISOString(),
     userId: session.user.id,
     url,
