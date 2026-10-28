@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness, useCan } from "@/lib/business";
+import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,9 +80,36 @@ export const Route = createFileRoute("/_authenticated/app/brand-shops")({
 function BrandShops() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { business, role } = useBusiness();
+  const { business, role, access } = useBusiness();
   const canSetup = useCan("branches");
-  const canViewReport = ["owner", "manager", "accountant", "branch_manager"].includes(role);
+  const canViewReport =
+    role === "owner" ||
+    (["manager", "accountant", "branch_manager"].includes(role) &&
+      hasAccess(access, "reports", "view"));
+  const canViewTab = (name: ReportTab) => {
+    if (!canViewReport) return false;
+    if (name === "Report") return true;
+    if (role === "owner") return true;
+    switch (name) {
+      case "Sales":
+        return hasAccess(access, "sales", "view");
+      case "Purchases":
+        return hasAccess(access, "purchases", "view");
+      case "Stock":
+        return hasAccess(access, "inventory", "view");
+      case "Expenses":
+        return hasAccess(access, "expenses", "view");
+      case "Returns":
+        return hasAccess(access, "sales", "view") && hasAccess(access, "purchase_returns", "view");
+      case "Payments":
+        return (
+          hasAccess(access, "customers", "view") && hasAccess(access, "supplier_payments", "view")
+        );
+      default:
+        return false;
+    }
+  };
+  const visibleTabs = (Object.keys(REPORT_SECTIONS) as ReportTab[]).filter(canViewTab);
   const qc = useQueryClient();
   const [newName, setNewName] = useState("");
   const [newKind, setNewKind] = useState<"branch" | "warehouse">("branch");
@@ -117,6 +145,9 @@ function BrandShops() {
   useEffect(() => {
     setPage(0);
   }, [branch?.id, from, to, tab]);
+  useEffect(() => {
+    if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Report");
+  }, [tab, visibleTabs]);
   const addShop = useMutation({
     mutationFn: async () => {
       const name = newName.trim();
@@ -135,7 +166,7 @@ function BrandShops() {
       setNewName("");
       await qc.invalidateQueries({ queryKey: ["brand-shop-branches", business.id] });
       void navigate({ search: (prev) => ({ ...prev, branch: id }) });
-      toast.success("New shop opened with its own accounts");
+      toast.success("Shop created. Configure its cash account before daily closing.");
     },
     onError: (e) => toast.error(friendlyError(e)),
   });
@@ -149,7 +180,7 @@ function BrandShops() {
       REPORT_SECTIONS[tab],
       page,
     ],
-    enabled: canViewReport && Boolean(branch) && Boolean(from) && Boolean(to) && from <= to,
+    enabled: canViewTab(tab) && Boolean(branch) && Boolean(from) && Boolean(to) && from <= to,
     refetchInterval: 60_000,
     queryFn: async () => {
       if (!branch) throw new Error("Select a shop");
@@ -480,8 +511,8 @@ function BrandShops() {
             {from > to && <p className="text-destructive">From date must be before To date.</p>}
             {!canViewReport ? (
               <p className="text-sm text-muted-foreground">
-                Shop financial reports are available to owners, managers, accountants, and branch
-                managers.
+                Shop financial reports require report access. Branch managers can view only their
+                assigned shops.
               </p>
             ) : accounts.error ? (
               <p className="text-destructive">{friendlyError(accounts.error)}</p>
@@ -500,7 +531,7 @@ function BrandShops() {
                   ))}
                 </div>
                 <div className="flex max-w-full gap-1 overflow-x-auto border-b pb-1 print:hidden">
-                  {Object.keys(heads).map((t) => (
+                  {visibleTabs.map((t) => (
                     <Button
                       key={t}
                       variant={tab === t ? "secondary" : "ghost"}

@@ -1,6 +1,6 @@
 {
   "name": "tanstack_start_ts",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -12,6 +12,7 @@
     "tauri:build:ci": "tauri build --config src-tauri/tauri.ci.conf.json",
     "db:apply-daily-summary": "supabase db query --linked --file drizzle/migrations/0050_optimize_daily_summary.sql",
     "db:apply-access-view-guard": "supabase db query --linked --file drizzle/migrations/0052_access_permission_view_prerequisite.sql",
+    "db:apply-brand-shop-scope": "supabase db query --linked --file drizzle/migrations/0063_brand_shop_rpc_scope.sql",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",

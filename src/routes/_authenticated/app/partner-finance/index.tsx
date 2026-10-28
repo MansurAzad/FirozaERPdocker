@@ -269,7 +269,7 @@ function PartnerFinance() {
         .from("business_members")
         .select("user_id,role,display_name")
         .eq("business_id", business.id)
-        .in("role", ["branch_manager", "salesman", "store_keeper"])
+        .in("role", ["branch_manager", "salesman", "store_keeper", "purchase_officer"])
         .order("display_name");
       if (error) throw error;
       return data as FinanceMember[];
@@ -836,7 +836,7 @@ function PartnerFinance() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Partner Finance shop access updated");
+      toast.success("Shop access updated");
       void qc.invalidateQueries({ queryKey: ["partner-finance-branch-access", business.id] });
     },
     onError: (error) => toast.error(friendlyError(error)),
@@ -2367,10 +2367,10 @@ function PartnerFinance() {
         <div className="space-y-4">
           {canManageProviders && (
             <section className="rounded-lg border bg-card p-4">
-              <h2 className="font-semibold">Shop access for branch-scoped members</h2>
+              <h2 className="font-semibold">Shop access for branch-scoped staff</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Owners, managers and accountants have central access. Branch managers, sales staff
-                and store keepers can see only shops explicitly assigned here.
+                Owners, managers and accountants have central access. Branch managers, sales staff,
+                store keepers and purchase officers can see only shops explicitly assigned here.
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
                 <F label="Member">
