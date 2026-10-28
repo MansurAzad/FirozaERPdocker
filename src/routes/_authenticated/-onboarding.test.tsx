@@ -8,9 +8,8 @@ const { navigateMock, signOutMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", async () => {
-  const actual = await vi.importActual<typeof import("@tanstack/react-router")>(
-    "@tanstack/react-router",
-  );
+  const actual =
+    await vi.importActual<typeof import("@tanstack/react-router")>("@tanstack/react-router");
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -41,9 +40,7 @@ describe("onboarding access-pending flow", () => {
     render(<Onboarding />);
 
     expect(screen.getByText("অ্যাকাউন্ট তৈরি হয়েছে")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Owner-কে আপনার ইমেইলটি Team পেজ থেকে যোগ করে/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Owner-কে আপনার ইমেইলটি Team পেজ থেকে যোগ করে/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /অ্যাক্সেস যাচাই করুন/i }));
     expect(navigateMock).toHaveBeenCalledWith({ to: "/app", replace: true });

@@ -7,6 +7,7 @@ import { useBusiness } from "@/lib/business";
 import { hasAccess, type AccessModule } from "@/lib/access-control";
 import { useI18n } from "@/lib/i18n";
 import { bdt, friendlyError } from "@/lib/format";
+import { dhakaDate, lastDhakaDays } from "@/lib/dhaka-date";
 import { Button } from "@/components/ui/button";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
@@ -63,35 +64,14 @@ const topConfig = {
 const axisFmt = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 const compact = (v: number) => axisFmt.format(v);
 
-function localIso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-/** The last `n` calendar days in the browser's local timezone, oldest first. */
-function lastDays(n: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const out: { date: string; label: string }[] = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    out.push({
-      date: localIso(d),
-      label: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
-    });
-  }
-  return out;
-}
-
 function Dashboard() {
   const { business, access } = useBusiness();
   const { t } = useI18n();
   const canView = (module: AccessModule) => hasAccess(access, module);
-  const { data } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ["dash", business.id, access],
     queryFn: async () => {
+      const today = dhakaDate();
       const [products, variants, customers, suppliers, branches] = await Promise.all([
         canView("products") ? count("products", business.id) : 0,
         canView("products") ? count("product_variants", business.id) : 0,
@@ -126,7 +106,7 @@ function Dashboard() {
               .from("purchases")
               .select("total")
               .eq("business_id", business.id)
-              .eq("purchase_date", new Date().toISOString().slice(0, 10))
+              .eq("purchase_date", today)
               .eq("status", "posted")
           : null,
         canView("sales")
@@ -134,7 +114,7 @@ function Dashboard() {
               .from("sales")
               .select("total,tax,cogs")
               .eq("business_id", business.id)
-              .eq("sale_date", new Date().toISOString().slice(0, 10))
+              .eq("sale_date", today)
               .eq("status", "posted")
           : null,
         canView("due_collection")
@@ -174,7 +154,7 @@ function Dashboard() {
     enabled: canView("sales"),
     queryKey: ["dash-trend", business.id],
     queryFn: async (): Promise<TrendPoint[]> => {
-      const days = lastDays(14);
+      const days = lastDhakaDays(14);
       const start = days[0]?.date ?? "1970-01-01";
       const { data: sales, error } = await supabase
         .from("sales")
@@ -202,7 +182,7 @@ function Dashboard() {
     enabled: canView("sales") && canView("products"),
     queryKey: ["dash-top", business.id],
     queryFn: async (): Promise<TopProduct[]> => {
-      const start = lastDays(30)[0]?.date ?? "1970-01-01";
+      const start = lastDhakaDays(30)[0]?.date ?? "1970-01-01";
       const { data: rows, error } = await supabase
         .from("sales")
         .select(
@@ -339,51 +319,72 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-px overflow-hidden rounded-lg border bg-border min-[420px]:grid-cols-2 lg:grid-cols-4">
-        {money
-          .filter((m) => hasAccess(access, m.module))
-          .map((m) => (
-            <Link
-              key={m.k}
-              to={m.to}
-              aria-label={`${t(m.k)}: ${bdt(m.v)}. ${m.note}`}
-              className="group flex min-w-0 flex-col overflow-hidden bg-card p-3 transition-colors hover:bg-muted/40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
-            >
-              <div className="flex min-w-0 items-start justify-between gap-2">
-                <div className="min-w-0 break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t(m.k)}
-                </div>
-                <ArrowUpRight
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
-                />
-              </div>
-              <div className="num mt-2 whitespace-nowrap font-display text-base font-semibold leading-tight tracking-tight sm:text-xl xl:text-2xl">
-                {bdt(m.v)}
-              </div>
-              <div className="mt-1 break-words text-xs text-muted-foreground">{m.note}</div>
-            </Link>
-          ))}
-      </div>
+      {isPending && (
+        <p role="status" className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
+          Loading dashboard data…
+        </p>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm"
+        >
+          <span>Could not load dashboard data: {friendlyError(error)}</span>
+          <Button type="button" variant="outline" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
 
-      <div className="grid min-w-0 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-4">
-        {counts
-          .filter((c) => hasAccess(access, c.module))
-          .map((c) => (
-            <Link
-              key={c.label}
-              to={c.to}
-              className="group min-w-0 overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
-            >
-              <c.icon className="h-5 w-5 text-primary" />
-              <div className="num mt-3 whitespace-nowrap font-display text-lg font-semibold leading-tight sm:text-2xl">
-                {c.v ?? "—"}
-              </div>
-              <div className="break-words text-sm font-medium">{c.label}</div>
-              <div className="break-words text-xs text-muted-foreground">{c.sub}</div>
-            </Link>
-          ))}
-      </div>
+      {!isPending && !error && (
+        <>
+          <div className="grid min-w-0 gap-px overflow-hidden rounded-lg border bg-border min-[420px]:grid-cols-2 lg:grid-cols-4">
+            {money
+              .filter((m) => hasAccess(access, m.module))
+              .map((m) => (
+                <Link
+                  key={m.k}
+                  to={m.to}
+                  aria-label={`${t(m.k)}: ${bdt(m.v)}. ${m.note}`}
+                  className="group flex min-w-0 flex-col overflow-hidden bg-card p-3 transition-colors hover:bg-muted/40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0 break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {t(m.k)}
+                    </div>
+                    <ArrowUpRight
+                      aria-hidden="true"
+                      className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+                    />
+                  </div>
+                  <div className="num mt-2 whitespace-nowrap font-display text-base font-semibold leading-tight tracking-tight sm:text-xl xl:text-2xl">
+                    {bdt(m.v)}
+                  </div>
+                  <div className="mt-1 break-words text-xs text-muted-foreground">{m.note}</div>
+                </Link>
+              ))}
+          </div>
+
+          <div className="grid min-w-0 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-4">
+            {counts
+              .filter((c) => hasAccess(access, c.module))
+              .map((c) => (
+                <Link
+                  key={c.label}
+                  to={c.to}
+                  className="group min-w-0 overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
+                >
+                  <c.icon className="h-5 w-5 text-primary" />
+                  <div className="num mt-3 whitespace-nowrap font-display text-lg font-semibold leading-tight sm:text-2xl">
+                    {c.v ?? "—"}
+                  </div>
+                  <div className="break-words text-sm font-medium">{c.label}</div>
+                  <div className="break-words text-xs text-muted-foreground">{c.sub}</div>
+                </Link>
+              ))}
+          </div>
+        </>
+      )}
 
       {hasAccess(access, "sales") && (
         <div className="grid min-w-0 gap-4 lg:grid-cols-7">
@@ -398,49 +399,55 @@ function Dashboard() {
             <div className="mb-4 text-xs text-muted-foreground">
               Posted invoices; gross profit before other expenses
             </div>
-            <ChartContainer config={trendConfig} className="aspect-auto h-[240px] w-full">
-              <AreaChart data={trend.data ?? []} margin={{ left: 4, right: 8, top: 8 }}>
-                <defs>
-                  <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.7} />
-                    <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.05} />
-                  </linearGradient>
-                  <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.7} />
-                    <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={12}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                  tickFormatter={(v: number) => compact(v)}
-                />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                <Area
-                  dataKey="sales"
-                  type="monotone"
-                  fill="url(#fillSales)"
-                  stroke="var(--color-sales)"
-                  strokeWidth={2}
-                />
-                <Area
-                  dataKey="profit"
-                  type="monotone"
-                  fill="url(#fillProfit)"
-                  stroke="var(--color-profit)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ChartContainer>
+            {trend.error ? (
+              <p role="alert" className="py-16 text-center text-sm text-destructive">
+                Could not load sales trend: {friendlyError(trend.error)}
+              </p>
+            ) : (
+              <ChartContainer config={trendConfig} className="aspect-auto h-[240px] w-full">
+                <AreaChart data={trend.data ?? []} margin={{ left: 4, right: 8, top: 8 }}>
+                  <defs>
+                    <linearGradient id="fillSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-sales)" stopOpacity={0.7} />
+                      <stop offset="95%" stopColor="var(--color-sales)" stopOpacity={0.05} />
+                    </linearGradient>
+                    <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.7} />
+                      <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    minTickGap={12}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                    tickFormatter={(v: number) => compact(v)}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                  <Area
+                    dataKey="sales"
+                    type="monotone"
+                    fill="url(#fillSales)"
+                    stroke="var(--color-sales)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    dataKey="profit"
+                    type="monotone"
+                    fill="url(#fillProfit)"
+                    stroke="var(--color-profit)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-5 lg:col-span-3">
@@ -452,7 +459,15 @@ function Dashboard() {
               <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0" />
             </Link>
             <div className="mb-4 text-xs text-muted-foreground">By revenue</div>
-            {top.data?.length ? (
+            {top.error ? (
+              <p role="alert" className="py-16 text-center text-sm text-destructive">
+                Could not load top products: {friendlyError(top.error)}
+              </p>
+            ) : top.isPending ? (
+              <p role="status" className="py-16 text-center text-sm text-muted-foreground">
+                Loading top products…
+              </p>
+            ) : top.data?.length ? (
               <ChartContainer config={topConfig} className="aspect-auto h-[240px] w-full">
                 <BarChart data={top.data} layout="vertical" margin={{ left: 4, right: 12 }}>
                   <CartesianGrid horizontal={false} />
