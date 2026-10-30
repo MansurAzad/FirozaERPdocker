@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { useBranches } from "@/lib/finance";
 import { bdt, friendlyError } from "@/lib/format";
+import { hasAccess } from "@/lib/access-control";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, selectCls, today } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
@@ -64,9 +65,26 @@ const STATUS: Record<
 };
 
 function Transfers() {
-  const { business, role } = useBusiness();
+  const { business, role, access } = useBusiness();
   const qc = useQueryClient();
   const branches = useBranches(business.id);
+  const centralRole = ["owner", "manager", "accountant"].includes(role);
+  const branchAccess = useQuery({
+    enabled: !centralRole,
+    queryKey: ["transfer-branch-access", business.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_finance_branch_access")
+        .select("branch_id")
+        .eq("business_id", business.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const assignedBranchIds = new Set((branchAccess.data ?? []).map((item) => item.branch_id));
+  const accessibleBranches = (branches.data ?? []).filter(
+    (item) => centralRole || assignedBranchIds.has(item.id),
+  );
   const [tab, setTab] = useState<"dispatch" | "approvals">("dispatch");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -77,8 +95,8 @@ function Transfers() {
   const [pick, setPick] = useState("");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const can = TRANSFER_ROLES.includes(role);
-  const canApprove = APPROVAL_ROLES.includes(role);
+  const can = TRANSFER_ROLES.includes(role) && hasAccess(access, "transfers", "create");
+  const canApprove = APPROVAL_ROLES.includes(role) && hasAccess(access, "transfers", "approve");
 
   const stock = useQuery({
     enabled: !!from,
@@ -254,6 +272,9 @@ function Transfers() {
         title="Stock Transfer"
         sub="Dispatch from one location, confirm receipt at the other"
       />
+      {branchAccess.error && (
+        <p className="mb-4 text-sm text-destructive">{friendlyError(branchAccess.error)}</p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button
@@ -363,7 +384,7 @@ function Transfers() {
                     }}
                   >
                     <option value="">— Select —</option>
-                    {(branches.data ?? []).map((b) => (
+                    {accessibleBranches.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
                       </option>
@@ -373,7 +394,7 @@ function Transfers() {
                 <F label="To">
                   <select className={selectCls} value={to} onChange={(e) => setTo(e.target.value)}>
                     <option value="">— Select —</option>
-                    {(branches.data ?? [])
+                    {accessibleBranches
                       .filter((b) => b.id !== from)
                       .map((b) => (
                         <option key={b.id} value={b.id}>
@@ -514,15 +535,17 @@ function Transfers() {
                               Send for approval
                             </Button>
                           )}
-                          {can && t.status === "dispatched" && (
-                            <Button
-                              size="sm"
-                              disabled={receive.isPending}
-                              onClick={() => receive.mutate(t.id)}
-                            >
-                              Receive
-                            </Button>
-                          )}
+                          {can &&
+                            t.status === "dispatched" &&
+                            (centralRole || assignedBranchIds.has(t.to_branch_id)) && (
+                              <Button
+                                size="sm"
+                                disabled={receive.isPending}
+                                onClick={() => receive.mutate(t.id)}
+                              >
+                                Receive
+                              </Button>
+                            )}
                         </div>
                       </TableCell>
                     </TableRow>

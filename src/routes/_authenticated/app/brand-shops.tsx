@@ -14,12 +14,14 @@ import {
   Download,
   Printer,
   Receipt,
+  ScanLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness, useCan } from "@/lib/business";
 import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
+import { dhakaDate } from "@/lib/dhaka-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { F, today, monthStart } from "@/components/erp/ui";
@@ -30,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { shopReportPageSchema, shopReportSchema } from "@/lib/brand-shop";
+import { shopDashboardSchema, shopReportPageSchema, shopReportSchema } from "@/lib/brand-shop";
 import { makePdf, makeXlsx, download, type Sheet } from "@/lib/export";
 import {
   Table,
@@ -166,7 +168,9 @@ function BrandShops() {
       setNewName("");
       await qc.invalidateQueries({ queryKey: ["brand-shop-branches", business.id] });
       void navigate({ search: (prev) => ({ ...prev, branch: id }) });
-      toast.success("Shop created. Configure its cash account before daily closing.");
+      toast.success(
+        "Shop created. Configure its cash account before accepting paid sales or closing.",
+      );
     },
     onError: (e) => toast.error(friendlyError(e)),
   });
@@ -207,7 +211,24 @@ function BrandShops() {
       return { report, total: result.total };
     },
   });
+  const dashboardDate = dhakaDate();
+  const shopDashboard = useQuery({
+    enabled: canViewReport && branch?.kind === "branch" && branch.status === "active",
+    queryKey: ["brand-shop-dashboard", business.id, branch?.id, dashboardDate],
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      if (!branch) throw new Error("Select a brand shop.");
+      const { data, error } = await supabase.rpc("brand_shop_dashboard", {
+        _biz: business.id,
+        _branch: branch.id,
+        _date: dashboardDate,
+      });
+      if (error) throw error;
+      return shopDashboardSchema.parse(data);
+    },
+  });
   const d = accounts.data?.report;
+  const dashboard = shopDashboard.data;
   const totalRows = accounts.data?.total ?? 0;
   const metrics = [
     ["Net sales · after returns", d?.metrics["net_sales"] ?? 0],
@@ -435,12 +456,15 @@ function BrandShops() {
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap print:hidden">
                 {branch.status === "active" && (
                   <>
-                    <Button asChild>
-                      <Link to="/app/sales/new" search={{ branch: branch.id }}>
-                        <ShoppingCart className="h-4 w-4" />
-                        New sale
-                      </Link>
-                    </Button>
+                    {hasAccess(access, "sales", "create") && (
+                      <Button asChild>
+                        <Link to="/app/sales/new" search={{ branch: branch.id }}>
+                          <ShoppingCart className="h-4 w-4" />
+                          <ScanLine className="h-4 w-4" />
+                          POS · Scan IMEI/barcode
+                        </Link>
+                      </Button>
+                    )}
                     <Button asChild variant="secondary">
                       <Link to="/app/purchases/new" search={{ branch: branch.id }}>
                         <Truck className="h-4 w-4" />
@@ -463,6 +487,144 @@ function BrandShops() {
                 </Button>
               </div>
             </div>
+            {branch.kind === "branch" && canViewReport && (
+              <section
+                aria-label={`${selected} dashboard for ${dashboardDate}`}
+                className="space-y-4 rounded-lg border bg-muted/20 p-3 sm:p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">Shop dashboard · Today</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Dhaka date {dashboardDate} · refreshes every 30 seconds
+                    </p>
+                  </div>
+                </div>
+                {shopDashboard.error ? (
+                  <div role="alert" className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm text-destructive">
+                      Could not load shop dashboard: {friendlyError(shopDashboard.error)}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void shopDashboard.refetch()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : shopDashboard.isPending ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    Loading today&apos;s shop figures…
+                  </p>
+                ) : dashboard ? (
+                  <>
+                    <div className="grid gap-px overflow-hidden rounded-lg border bg-border min-[420px]:grid-cols-2 lg:grid-cols-3">
+                      {hasAccess(access, "sales") && dashboard.sales && (
+                        <>
+                          <div className="bg-card p-3">
+                            <div className="text-xs text-muted-foreground">Sales today</div>
+                            <div className="num mt-1 text-lg font-semibold">
+                              {bdt(dashboard.sales.total)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {dashboard.sales.count} posted invoice(s)
+                            </div>
+                          </div>
+                          <div className="bg-card p-3">
+                            <div className="text-xs text-muted-foreground">Paid at sale</div>
+                            <div className="num mt-1 text-lg font-semibold">
+                              {bdt(dashboard.sales.paid)}
+                            </div>
+                          </div>
+                          <div className="bg-card p-3">
+                            <div className="text-xs text-muted-foreground">Customer due</div>
+                            <div className="num mt-1 text-lg font-semibold">
+                              {bdt(dashboard.sales.due)}
+                            </div>
+                          </div>
+                          {dashboard.returns && (
+                            <div className="bg-card p-3">
+                              <div className="text-xs text-muted-foreground">
+                                Sales returns today
+                              </div>
+                              <div className="num mt-1 text-lg font-semibold">
+                                {bdt(dashboard.returns.total)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {dashboard.returns.count} return(s) · refunds{" "}
+                                {bdt(dashboard.returns.refund)}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {(hasAccess(access, "cash_bank") || hasAccess(access, "closing")) &&
+                        dashboard.cash_balance !== null && (
+                          <div className="bg-card p-3">
+                            <div className="text-xs text-muted-foreground">
+                              Current cash balance
+                            </div>
+                            <div className="num mt-1 text-lg font-semibold">
+                              {bdt(dashboard.cash_balance)}
+                            </div>
+                          </div>
+                        )}
+                      {(hasAccess(access, "cash_bank") || hasAccess(access, "closing")) &&
+                        dashboard.bank_balance !== null && (
+                          <div className="bg-card p-3">
+                            <div className="text-xs text-muted-foreground">
+                              Current bank &amp; mobile balance
+                            </div>
+                            <div className="num mt-1 text-lg font-semibold">
+                              {bdt(dashboard.bank_balance)}
+                            </div>
+                          </div>
+                        )}
+                      {hasAccess(access, "inventory") && dashboard.stock && (
+                        <div className="bg-card p-3">
+                          <div className="text-xs text-muted-foreground">Low-stock variants</div>
+                          <div className="num mt-1 text-lg font-semibold">
+                            {dashboard.stock.low_stock_count}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            At or below their reorder level
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {hasAccess(access, "inventory") && dashboard.stock?.low_stock.length ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h4 className="text-sm font-medium">Stock alerts</h4>
+                          <Button asChild size="sm" variant="outline">
+                            <Link to="/app/stock" search={{ branch: branch.id }}>
+                              View shop stock
+                            </Link>
+                          </Button>
+                        </div>
+                        <ul className="grid gap-2 sm:grid-cols-2">
+                          {dashboard.stock.low_stock.map((item) => (
+                            <li
+                              key={item.variant_id}
+                              className="flex min-w-0 items-center justify-between gap-2 rounded-md border bg-card p-2 text-sm"
+                            >
+                              <span className="min-w-0 truncate">
+                                {item.product} · {item.sku}
+                              </span>
+                              <span className="num shrink-0 text-muted-foreground">
+                                {item.qty} / reorder {item.reorder_level}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </section>
+            )}
             <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap print:hidden">
               <F className="min-w-0 sm:w-40" label="From">
                 <Input

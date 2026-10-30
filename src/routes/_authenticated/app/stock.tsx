@@ -231,7 +231,7 @@ function StockPage() {
     return { imported: records.length };
   };
   const canImportStock =
-    ["owner", "manager", "accountant", "store_keeper"].includes(role) &&
+    ["owner", "manager", "accountant", "store_keeper", "branch_manager"].includes(role) &&
     hasAccess(access, "stock_adjustments", "create") &&
     hasAccess(access, "stock_adjustments", "approve");
 
@@ -285,7 +285,7 @@ function StockPage() {
         </div>
       </div>
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="grid gap-2 border-b p-3 sm:grid-cols-[minmax(0,20rem)_12rem_auto] sm:p-4">
+        <div className="grid gap-2 border-b p-3 sm:grid-cols-[minmax(0,20rem)_12rem_auto_auto] sm:p-4">
           <div className="flex gap-2">
             <Input
               placeholder="Search product or SKU…"
@@ -312,6 +312,14 @@ function StockPage() {
               Transfer stock
             </Link>
           </Button>
+          {hasAccess(access, "stock_adjustments", "create") && (
+            <Button asChild variant="outline">
+              <Link to="/app/stock-adjustments">
+                <ScanLine />
+                Stock count / adjustment
+              </Link>
+            </Button>
+          )}
         </div>
         {error ? (
           <p className="p-6 text-sm text-destructive">{friendlyError(error)}</p>

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, QrCode, X } from "lucide-react";
+import { Camera, QrCode, X, ZoomIn } from "lucide-react";
+import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 
 /** Split pasted/scanned text into unique codes (lines, commas, spaces). */
 export function splitCodes(text: string) {
@@ -30,14 +33,29 @@ type Props = {
   size?: "sm" | "default" | "icon";
 };
 
+type ZoomCapabilities = MediaTrackCapabilities & {
+  zoom?: { min: number; max: number; step?: number };
+};
+
+type ZoomSettings = MediaTrackSettings & { zoom?: number };
+type ZoomConstraintSet = MediaTrackConstraintSet & { zoom?: ConstrainDouble };
+
 /** Camera barcode / QR scanner. Multi mode keeps scanning and collects a bulk list. */
 export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Props) {
   const [open, setOpen] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [paste, setPaste] = useState("");
   const [err, setErr] = useState("");
-  const boxId = useRef(`scan-${Math.random().toString(36).slice(2)}`).current;
-  const scanner = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [zoom, setZoom] = useState<{
+    min: number;
+    max: number;
+    step: number;
+    value: number;
+  } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanner = useRef<IScannerControls | null>(null);
+  const zoomTrack = useRef<MediaStreamTrack | null>(null);
   const last = useRef("");
   const cb = useRef(onCodes);
   cb.current = onCodes;
@@ -46,18 +64,56 @@ export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Prop
     if (!open) return;
     let alive = true;
     setErr("");
+    setStarting(true);
+    setZoom(null);
+    zoomTrack.current = null;
+    last.current = "";
     (async () => {
       try {
-        const { Html5Qrcode } = await import("html5-qrcode");
-        await new Promise((r) => setTimeout(r, 150));
-        if (!alive) return;
-        const s = new Html5Qrcode(boxId);
-        scanner.current = s as never;
-        await s.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 260, height: 140 } },
-          (text) => {
-            const code = text.trim();
+        const video = videoRef.current;
+        if (!video) {
+          setErr("Camera preview could not be opened. Close this window and try again.");
+          setStarting(false);
+          return;
+        }
+
+        const hints = new Map<DecodeHintType, unknown>([
+          [
+            DecodeHintType.POSSIBLE_FORMATS,
+            [
+              BarcodeFormat.CODE_128,
+              BarcodeFormat.CODE_39,
+              BarcodeFormat.CODE_93,
+              BarcodeFormat.EAN_13,
+              BarcodeFormat.EAN_8,
+              BarcodeFormat.ITF,
+              BarcodeFormat.UPC_A,
+              BarcodeFormat.UPC_E,
+              BarcodeFormat.QR_CODE,
+              BarcodeFormat.DATA_MATRIX,
+              BarcodeFormat.PDF_417,
+            ],
+          ],
+          [DecodeHintType.TRY_HARDER, true],
+        ]);
+        const reader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 120,
+          delayBetweenScanSuccess: 450,
+        });
+        const controls = await reader.decodeFromConstraints(
+          {
+            audio: false,
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+          },
+          video,
+          (result, _error, activeControls) => {
+            if (!alive || !result) return;
+            scanner.current = activeControls;
+            const code = result.getText().trim();
             if (!code || code === last.current) return;
             last.current = code;
             setTimeout(() => {
@@ -66,26 +122,75 @@ export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Prop
             navigator.vibrate?.(60);
             if (!multi) {
               cb.current([code]);
+              activeControls.stop();
               setOpen(false);
               return;
             }
             setCodes((c) => (c.includes(code) ? c : [...c, code]));
           },
-          () => {},
         );
-      } catch {
-        if (alive) setErr("Camera not available. Use a USB scanner or paste codes below.");
+        if (alive) {
+          scanner.current = controls;
+          setStarting(false);
+          const stream = video.srcObject;
+          const track = stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
+          const capabilities = track?.getCapabilities() as ZoomCapabilities | undefined;
+          const range = capabilities?.zoom;
+          if (
+            track &&
+            range &&
+            Number.isFinite(range.min) &&
+            Number.isFinite(range.max) &&
+            range.max > range.min
+          ) {
+            const settings = track.getSettings() as ZoomSettings;
+            const step = range.step && range.step > 0 ? range.step : (range.max - range.min) / 40;
+            zoomTrack.current = track;
+            setZoom({
+              min: range.min,
+              max: range.max,
+              step,
+              value: settings.zoom ?? range.min,
+            });
+          }
+        } else {
+          controls.stop();
+        }
+      } catch (error) {
+        if (alive) {
+          const name = error instanceof DOMException ? error.name : "";
+          setErr(
+            name === "NotAllowedError"
+              ? "Camera access is blocked. Allow camera permission and try again."
+              : name === "NotFoundError"
+                ? "No camera was found. Use a USB scanner or paste codes below."
+                : "Could not start the camera. Check camera permission and try again.",
+          );
+          setStarting(false);
+        }
       }
     })();
     return () => {
       alive = false;
-      const s = scanner.current;
+      const activeScanner = scanner.current;
       scanner.current = null;
-      s?.stop()
-        .then(() => s.clear())
-        .catch(() => {});
+      zoomTrack.current = null;
+      activeScanner?.stop();
     };
-  }, [open, multi, boxId]);
+  }, [open, multi]);
+
+  function applyZoom(value: number) {
+    const track = zoomTrack.current;
+    if (!track) return;
+    const zoomConstraint: ZoomConstraintSet = { zoom: { ideal: value } };
+    void track.applyConstraints({ advanced: [zoomConstraint] }).catch((error: unknown) => {
+      setErr(
+        error instanceof Error
+          ? `Could not adjust camera zoom: ${error.message}`
+          : "Could not adjust camera zoom.",
+      );
+    });
+  }
 
   function finish() {
     const all = [...new Set([...codes, ...splitCodes(paste)])];
@@ -125,7 +230,46 @@ export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Prop
               {multi ? "Bulk barcode / IMEI scan" : "Scan barcode / QR"}
             </DialogTitle>
           </DialogHeader>
-          <div id={boxId} className="min-h-[200px] overflow-hidden rounded-md bg-muted" />
+          <div className="relative overflow-hidden rounded-md bg-black">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="aspect-[4/3] max-h-[55vh] w-full object-contain"
+            />
+            <div className="pointer-events-none absolute inset-x-4 top-1/2 -translate-y-1/2">
+              <div className="h-20 rounded-lg border-2 border-dashed border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" />
+            </div>
+          </div>
+          {starting && <p className="text-xs text-muted-foreground">Starting camera…</p>}
+          {!err && (
+            <p className="text-xs text-muted-foreground">
+              Center the barcode and move closer until it fills the guide.
+            </p>
+          )}
+          {zoom && (
+            <div className="flex items-center gap-3">
+              <ZoomIn className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Slider
+                aria-label="Camera zoom"
+                min={zoom.min}
+                max={zoom.max}
+                step={zoom.step}
+                value={[zoom.value]}
+                onValueChange={([value]) => {
+                  if (value !== undefined)
+                    setZoom((current) => (current ? { ...current, value } : current));
+                }}
+                onValueCommit={([value]) => {
+                  if (value !== undefined) applyZoom(value);
+                }}
+              />
+              <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                {zoom.value.toFixed(1)}x
+              </span>
+            </div>
+          )}
           {err && <p className="text-xs text-destructive">{err}</p>}
           {multi && (
             <>

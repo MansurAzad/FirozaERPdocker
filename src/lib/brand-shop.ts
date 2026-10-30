@@ -68,4 +68,42 @@ export const shopReportSchema = z.object({
     }),
   ),
 });
+
+export const shopDashboardSchema = z.object({
+  date: z.string(),
+  branch_id: z.string(),
+  sales: z
+    .object({
+      count: z.coerce.number(),
+      total: z.coerce.number(),
+      paid: z.coerce.number(),
+      due: z.coerce.number(),
+    })
+    .nullable(),
+  returns: z
+    .object({
+      count: z.coerce.number(),
+      total: z.coerce.number(),
+      refund: z.coerce.number(),
+    })
+    .nullable(),
+  cash_balance: z.coerce.number().nullable(),
+  bank_balance: z.coerce.number().nullable(),
+  stock: z
+    .object({
+      low_stock_count: z.coerce.number(),
+      low_stock: z.array(
+        z.object({
+          variant_id: z.string(),
+          sku: z.string(),
+          product: z.string(),
+          qty: z.coerce.number(),
+          reorder_level: z.coerce.number(),
+        }),
+      ),
+    })
+    .nullable(),
+});
+export type ShopDashboard = z.infer<typeof shopDashboardSchema>;
+
 export type ShopReport = z.infer<typeof shopReportSchema>;

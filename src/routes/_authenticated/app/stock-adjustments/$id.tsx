@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Check, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
+import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/app/stock-adjustments/$id"
   component: AdjustmentDetail,
 });
 
-const ROLES = ["owner", "manager", "accountant", "store_keeper"];
+const ROLES = ["owner", "manager", "accountant", "store_keeper", "branch_manager"];
 
 function statusVariant(s: string): "default" | "secondary" | "destructive" | "outline" {
   if (s === "posted") return "default";
@@ -52,10 +53,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function AdjustmentDetail() {
   const { id } = Route.useParams();
-  const { business, role } = useBusiness();
+  const { business, role, access } = useBusiness();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const canPost = ROLES.includes(role as string);
+  const canPost = ROLES.includes(role) && hasAccess(access, "stock_adjustments", "approve");
 
   const doc = useQuery({
     queryKey: ["stock-adjustment", id],

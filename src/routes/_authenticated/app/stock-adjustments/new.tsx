@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { useBranches } from "@/lib/finance";
+import { hasAccess } from "@/lib/access-control";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { F, selectCls, today } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
@@ -48,15 +49,18 @@ type Variant = {
 };
 let seq = 1;
 const n = (v: string) => (v.trim() === "" ? 0 : Number(v));
-const ROLES = ["owner", "manager", "accountant", "store_keeper"];
+const ROLES = ["owner", "manager", "accountant", "store_keeper", "branch_manager"];
 
 function AdjustmentForm() {
-  const { business, role } = useBusiness();
+  const { business, role, access } = useBusiness();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const branches = useBranches(business.id);
   const editId = Route.useSearch().edit;
-  const canEdit = ROLES.includes(role as string);
+  const canEdit =
+    ROLES.includes(role) &&
+    (hasAccess(access, "stock_adjustments", "create") ||
+      hasAccess(access, "stock_adjustments", "edit"));
 
   const [type, setType] = useState("recount");
   const [branch, setBranch] = useState("");

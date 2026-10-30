@@ -1346,6 +1346,7 @@ export type Database = {
           bank_collection: number;
           business_id: string;
           branch_id: string | null;
+          card_collection: number;
           cash_in: number;
           cash_collection: number;
           cash_out: number;
@@ -1374,6 +1375,7 @@ export type Database = {
           bank_collection?: number;
           business_id: string;
           branch_id?: string | null;
+          card_collection?: number;
           cash_in: number;
           cash_collection?: number;
           cash_out: number;
@@ -1402,6 +1404,7 @@ export type Database = {
           bank_collection?: number;
           business_id?: string;
           branch_id?: string | null;
+          card_collection?: number;
           cash_in?: number;
           cash_collection?: number;
           cash_out?: number;
@@ -3982,6 +3985,92 @@ export type Database = {
           },
         ];
       };
+      sale_exception_requests: {
+        Row: {
+          branch_id: string;
+          business_id: string;
+          customer_id: string | null;
+          exception_types: string[];
+          id: string;
+          payload: Json;
+          rejection_reason: string | null;
+          request_reason: string;
+          requested_at: string;
+          requested_by: string;
+          reviewed_at: string | null;
+          reviewer_id: string | null;
+          sale_id: string | null;
+          sale_summary: Json;
+          sale_total: number;
+          status: string;
+        };
+        Insert: {
+          branch_id: string;
+          business_id: string;
+          customer_id?: string | null;
+          exception_types: string[];
+          id?: string;
+          payload: Json;
+          rejection_reason?: string | null;
+          request_reason: string;
+          requested_at?: string;
+          requested_by: string;
+          reviewed_at?: string | null;
+          reviewer_id?: string | null;
+          sale_id?: string | null;
+          sale_summary: Json;
+          sale_total: number;
+          status?: string;
+        };
+        Update: {
+          branch_id?: string;
+          business_id?: string;
+          customer_id?: string | null;
+          exception_types?: string[];
+          id?: string;
+          payload?: Json;
+          rejection_reason?: string | null;
+          request_reason?: string;
+          requested_at?: string;
+          requested_by?: string;
+          reviewed_at?: string | null;
+          reviewer_id?: string | null;
+          sale_id?: string | null;
+          sale_summary?: Json;
+          sale_total?: number;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sale_exception_requests_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_exception_requests_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_exception_requests_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_exception_requests_sale_id_fkey";
+            columns: ["sale_id"];
+            isOneToOne: false;
+            referencedRelation: "sales";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       sale_items: {
         Row: {
           business_id: string;
@@ -5984,6 +6073,10 @@ export type Database = {
         Args: { _comments: string; _transfer_id: string };
         Returns: undefined;
       };
+      assign_partner_finance_branch_access: {
+        Args: { _biz: string; _branch: string; _enabled: boolean; _user: string };
+        Returns: undefined;
+      };
       brand_shop_report: {
         Args: {
           _biz: string;
@@ -5994,6 +6087,10 @@ export type Database = {
           _section: string;
           _to: string;
         };
+        Returns: Json;
+      };
+      brand_shop_dashboard: {
+        Args: { _biz: string; _branch: string; _date: string };
         Returns: Json;
       };
       calculate_commission_for_sale: {
@@ -6183,6 +6280,14 @@ export type Database = {
         Returns: string;
       };
       create_sale: { Args: { _biz: string; _data: Json }; Returns: string };
+      request_sale_exception: {
+        Args: { _biz: string; _data: Json; _reason: string };
+        Returns: string;
+      };
+      reject_sale_exception: {
+        Args: { _biz: string; _id: string; _reason: string };
+        Returns: undefined;
+      };
       create_sales_return: {
         Args: { _biz: string; _data: Json };
         Returns: string;
@@ -6225,6 +6330,10 @@ export type Database = {
       delete_account: {
         Args: { _biz: string; _id: string };
         Returns: undefined;
+      };
+      approve_sale_exception: {
+        Args: { _biz: string; _id: string };
+        Returns: string;
       };
       delete_attachment: {
         Args: { _attachment_id: string; _biz: string };

@@ -1,5 +1,5 @@
 import { matchedCompany } from "@/lib/branding";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,8 @@ import { F, METHODS, methodLabel, selectCls, today, type Method } from "@/compon
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScanButton } from "@/components/erp/ScanButton";
+import { defaultSaleCashAccount, salePaymentAccounts } from "@/lib/sale-payment-accounts";
+import { getSaleExceptionTypes, type SaleExceptionType } from "@/lib/sale-exceptions";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -90,7 +92,10 @@ function NewSale() {
   const [scan, setScan] = useState(Route.useSearch().imei ?? "");
   const [search, setSearch] = useState("");
   const [creditMsg, setCreditMsg] = useState<string | null>(null);
+  const [requestDialog, setRequestDialog] = useState(false);
+  const [requestReason, setRequestReason] = useState("");
   const isMgr = role === "owner" || role === "manager";
+  const isBranchManager = role === "branch_manager";
   const br =
     branch ||
     branches.data?.find((b) => b.kind !== "warehouse")?.id ||
@@ -114,6 +119,8 @@ function NewSale() {
   });
   const cust = custs.data?.find((c) => c.customer_id === customer);
   const level = cust?.price_level ?? "retail";
+  const paymentAccounts = salePaymentAccounts(accounts.data, br);
+  const defaultCashAccount = defaultSaleCashAccount(paymentAccounts, br);
 
   const stock = useQuery({
     enabled: !!br,
@@ -326,50 +333,94 @@ function NewSale() {
   const profit = sub - n(discount) - lines.reduce((s, l) => s + l.qty * 0, 0);
   void profit;
 
+  const exceptionTypes = getSaleExceptionTypes({
+    lines: lines.map((line) => ({
+      price: n(line.price),
+      minPrice: Number(vmap.get(line.variant_id)?.product_variants?.min_price ?? 0),
+    })),
+    subtotal: sub,
+    discount: n(discount),
+    due,
+    customerDue: Number(cust?.current_due ?? 0),
+    creditLimit: Number(cust?.credit_limit ?? 0),
+  });
+  const exceptionLabels: Record<SaleExceptionType, string> = {
+    minimum_price: "below minimum price",
+    discount_limit: "discount over 10%",
+    credit_limit: "over customer credit limit",
+  };
+
+  function getSalePayload(overrideCredit: boolean) {
+    if (!lines.length) throw new Error("Add at least one product.");
+    if (!br) throw new Error("Select a shop before completing the sale.");
+    for (const line of lines) {
+      const stockItem = vmap.get(line.variant_id);
+      if (!stockItem) throw new Error("This product is no longer in stock at the selected branch.");
+      if (line.qty <= 0)
+        throw new Error(`${stockItem.product_variants?.products?.model}: select IMEIs / quantity.`);
+    }
+    if (due < 0) throw new Error("Payment is more than the invoice total.");
+    if (due > 0 && !customer)
+      throw new Error("Walk-in sales must be fully paid. Select a customer to sell on credit.");
+
+    const defaultAccountId = defaultCashAccount?.id ?? "";
+    const paymentLines = pays.filter((payment) => n(payment.amount) > 0);
+    const selectedPaymentIds = new Set(
+      paymentAccounts.map((account) => account.id).filter((id): id is string => Boolean(id)),
+    );
+    if (paymentLines.length) {
+      if (accounts.isPending)
+        throw new Error("Wait for this shop's payment accounts to finish loading, then retry.");
+      if (accounts.error)
+        throw new Error(
+          "Could not load this shop's payment accounts. Retry before completing the sale.",
+        );
+      if (paymentAccounts.length === 0)
+        throw new Error(
+          "No payment account is available for this shop. Ask an owner or manager to create a cash account for this shop and grant this role Cash & Bank view access.",
+        );
+      if (paymentLines.some((payment) => !(payment.account_id || defaultAccountId)))
+        throw new Error(
+          "Select a payment account. Ask an owner or manager to create a cash account for this shop if none is available.",
+        );
+      if (
+        paymentLines.some(
+          (payment) => !selectedPaymentIds.has(payment.account_id || defaultAccountId),
+        )
+      )
+        throw new Error("Select an active payment account assigned to this shop.");
+    }
+
+    return {
+      branch_id: br,
+      customer_id: customer,
+      sale_date: date,
+      discount: n(discount),
+      tax: n(tax),
+      override_credit: overrideCredit,
+      quote_id: quoteId ?? null,
+      order_id: orderId ?? null,
+      items: lines.map((line) => ({
+        variant_id: line.variant_id,
+        qty: line.qty,
+        price: n(line.price),
+        imei_ids: line.imeis.map((imei) => imei.id),
+      })),
+      payments: paymentLines.map((payment) => ({
+        account_id: payment.account_id || defaultAccountId,
+        method: payment.method,
+        amount: n(payment.amount),
+        txn_ref: payment.txn_ref,
+      })),
+    };
+  }
+
   const save = useMutation({
     networkMode: "always",
     mutationFn: async (override: boolean) => {
-      if (!lines.length) throw new Error("Add at least one product.");
-      for (const l of lines) {
-        const s = vmap.get(l.variant_id);
-        if (!s) throw new Error("This product is no longer in stock at the selected branch.");
-        if (l.qty <= 0)
-          throw new Error(`${s.product_variants?.products?.model}: select IMEIs / quantity.`);
-        const min = Number(s.product_variants?.min_price ?? 0);
-        if (n(l.price) < min && !isMgr)
-          throw new Error(
-            `${s.product_variants?.products?.model}: price below minimum ${bdt(min)}.`,
-          );
-      }
-      if (due < 0) throw new Error("Payment is more than the invoice total.");
-      if (due > 0 && !customer)
-        throw new Error("Walk-in sales must be fully paid. Select a customer to sell on credit.");
-      const defAcc =
-        accounts.data?.find((a) => a.kind === "cash")?.id ?? accounts.data?.[0]?.id ?? "";
       const { data, error } = await supabase.rpc("create_sale", {
         _biz: business.id,
-        _data: {
-          branch_id: br,
-          customer_id: customer,
-          sale_date: date,
-          discount: n(discount),
-          tax: n(tax),
-          override_credit: override,
-          items: lines.map((l) => ({
-            variant_id: l.variant_id,
-            qty: l.qty,
-            price: n(l.price),
-            imei_ids: l.imeis.map((i) => i.id),
-          })),
-          payments: pays
-            .filter((p) => n(p.amount) > 0)
-            .map((p) => ({
-              account_id: p.account_id || defAcc,
-              method: p.method,
-              amount: n(p.amount),
-              txn_ref: p.txn_ref,
-            })),
-        },
+        _data: getSalePayload(override),
       });
       if (error) throw error;
       return data as string;
@@ -407,6 +458,25 @@ function NewSale() {
       if (msg.startsWith("CREDIT_LIMIT:")) return setCreditMsg(msg.replace("CREDIT_LIMIT: ", ""));
       toast.error(friendlyError(e));
     },
+  });
+  const requestApproval = useMutation({
+    networkMode: "always",
+    mutationFn: async (reason: string) => {
+      const { data, error } = await supabase.rpc("request_sale_exception", {
+        _biz: business.id,
+        _data: getSalePayload(false),
+        _reason: reason,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Sale approval request sent to an owner or manager.");
+      setRequestDialog(false);
+      setRequestReason("");
+      qc.invalidateQueries({ queryKey: ["sale-exception-requests", business.id] });
+    },
+    onError: (error) => toast.error(friendlyError(error)),
   });
 
   const filtered = (stock.data ?? [])
@@ -472,6 +542,7 @@ function NewSale() {
                 onChange={(e) => {
                   setBranch(e.target.value);
                   setLines([]);
+                  setPays((current) => current.map((payment) => ({ ...payment, account_id: "" })));
                 }}
               >
                 {branches.data?.map((b) => (
@@ -781,6 +852,35 @@ function NewSale() {
                 Split
               </Button>
             </div>
+            {accounts.error ? (
+              <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                Could not load this shop&apos;s payment accounts: {friendlyError(accounts.error)}
+              </p>
+            ) : (
+              !accounts.isPending &&
+              !defaultCashAccount && (
+                <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+                  <p>
+                    No cash account is configured for this shop. Paid sales need an account to
+                    record where the money was received.
+                  </p>
+                  {role === "owner" || role === "manager" ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/app/money" search={{ kind: "cash" }}>
+                        Set up shop cash account
+                      </Link>
+                    </Button>
+                  ) : (
+                    <p>Ask an owner or manager to create this shop&apos;s cash account.</p>
+                  )}
+                  {role !== "owner" && role !== "manager" && (
+                    <p>
+                      Cash &amp; Bank or Daily Closing view access is also required to select it.
+                    </p>
+                  )}
+                </div>
+              )
+            )}
             {pays.map((p) => (
               <div key={p.key} className="space-y-1.5 rounded-md border p-2">
                 <div className="flex gap-2">
@@ -834,14 +934,16 @@ function NewSale() {
                     )
                   }
                 >
-                  <option value="">Receive into: default cash</option>
-                  {accounts.data
-                    ?.filter((a) => a.status === "active")
-                    .map((a) => (
-                      <option key={a.id!} value={a.id!}>
-                        {a.name}
-                      </option>
-                    ))}
+                  <option value="">
+                    {defaultCashAccount?.name
+                      ? `Default: ${defaultCashAccount.name}`
+                      : "Select payment account"}
+                  </option>
+                  {paymentAccounts.map((a) => (
+                    <option key={a.id!} value={a.id!}>
+                      {a.name}
+                    </option>
+                  ))}
                 </select>
                 {p.method !== "cash" && (
                   <Input
@@ -887,11 +989,32 @@ function NewSale() {
           <Button
             className="w-full"
             size="lg"
-            disabled={save.isPending || !lines.length}
+            disabled={
+              save.isPending ||
+              requestApproval.isPending ||
+              !lines.length ||
+              (paid > 0 && accounts.isPending)
+            }
             onClick={() => save.mutate(false)}
           >
             {save.isPending ? "Saving…" : "Complete sale"}
           </Button>
+          {isBranchManager && exceptionTypes.length > 0 && (
+            <Button
+              className="w-full"
+              variant="outline"
+              disabled={
+                save.isPending ||
+                requestApproval.isPending ||
+                !lines.length ||
+                stock.isPending ||
+                (paid > 0 && accounts.isPending)
+              }
+              onClick={() => setRequestDialog(true)}
+            >
+              Request approval: {exceptionTypes.map((type) => exceptionLabels[type]).join(", ")}
+            </Button>
+          )}
         </aside>
       </div>
 
@@ -907,11 +1030,61 @@ function NewSale() {
               <AlertDialogAction onClick={() => save.mutate(true)}>
                 Approve & complete sale
               </AlertDialogAction>
+            ) : isBranchManager ? (
+              <AlertDialogAction
+                onClick={() => {
+                  setCreditMsg(null);
+                  setRequestDialog(true);
+                }}
+              >
+                Request manager approval
+              </AlertDialogAction>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Ask a manager to approve, or take more payment.
               </p>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={requestDialog}
+        onOpenChange={(open) => {
+          setRequestDialog(open);
+          if (!open) setRequestReason("");
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Request sale approval</AlertDialogTitle>
+            <AlertDialogDescription>
+              This sale will not post until a different owner or manager approves it. Stock,
+              customer credit, and payment accounts will be checked again at approval time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {exceptionTypes.length > 0 && (
+            <p className="text-sm">
+              Exceptions: {exceptionTypes.map((type) => exceptionLabels[type]).join(", ")}
+            </p>
+          )}
+          <Input
+            aria-label="Reason for approval request"
+            maxLength={1000}
+            placeholder="Reason for this exception"
+            value={requestReason}
+            onChange={(event) => setRequestReason(event.target.value)}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={requestApproval.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!requestReason.trim() || requestApproval.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                requestApproval.mutate(requestReason.trim());
+              }}
+            >
+              {requestApproval.isPending ? "Sending…" : "Send for approval"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

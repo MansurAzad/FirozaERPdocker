@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
+import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { selectCls } from "@/components/erp/ui";
@@ -45,7 +46,7 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "ou
 }
 
 function AdjustmentsIndex() {
-  const { business } = useBusiness();
+  const { business, access } = useBusiness();
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   const [q, setQ] = useState("");
@@ -83,12 +84,14 @@ function AdjustmentsIndex() {
         title="Stock Adjustments"
         sub="Correct book stock against a physical count, or make a manual increase/decrease. Stock moves only when posted."
         actions={
-          <Button asChild>
-            <Link to="/app/stock-adjustments/new">
-              <Plus className="mr-1 h-4 w-4" />
-              New adjustment
-            </Link>
-          </Button>
+          hasAccess(access, "stock_adjustments", "create") ? (
+            <Button asChild>
+              <Link to="/app/stock-adjustments/new">
+                <Plus className="mr-1 h-4 w-4" />
+                New adjustment
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
       <div className="mb-4 flex flex-wrap gap-2">

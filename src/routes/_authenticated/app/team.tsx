@@ -5,13 +5,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useBusiness, useCan, type Role } from "@/lib/business";
-import { hasAccess } from "@/lib/access-control";
+import { useBusiness, type Role } from "@/lib/business";
+import { ACCESS_ACTIONS, hasAccess } from "@/lib/access-control";
 import { useI18n } from "@/lib/i18n";
 import { ROLE_LABELS, friendlyError } from "@/lib/format";
 import { addMemberByEmail } from "@/lib/team.functions";
+import { effectiveModulePermissions, SHOP_PERMISSION_MODULES } from "@/lib/team-shop-access";
 import { PageHeader } from "@/components/erp/EntityManager";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -55,11 +58,17 @@ const ASSIGNABLE = Object.keys(ROLE_LABELS).filter((r) => r !== "owner") as Excl
   Role,
   "owner"
 >[];
+const SHOP_STAFF_ROLES: Role[] = ["branch_manager", "salesman", "store_keeper", "purchase_officer"];
 
 function TeamPage() {
-  const { business, userId, access } = useBusiness();
+  const { business, userId, access, role: currentRole } = useBusiness();
   const { t } = useI18n();
-  const isOwner = useCan("team");
+  const isOwner = currentRole === "owner";
+  const canManageShopAccess =
+    isOwner ||
+    (currentRole === "manager" &&
+      hasAccess(access, "sales", "view") &&
+      (hasAccess(access, "sales", "create") || hasAccess(access, "sales", "edit")));
   const canNotify = hasAccess(access, "team", "create");
   const qc = useQueryClient();
   const add = useServerFn(addMemberByEmail);
@@ -69,15 +78,58 @@ function TeamPage() {
   const [nTitle, setNTitle] = useState("");
   const [nMessage, setNMessage] = useState("");
   const [advancedAccess, setAdvancedAccess] = useState(false);
+  const [shopMemberId, setShopMemberId] = useState("");
 
   const { data } = useQuery({
     queryKey: ["members", business.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_members")
-        .select("*")
+        .select("id,user_id,role,display_name,access_role_id")
         .eq("business_id", business.id)
         .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const shops = useQuery({
+    enabled: canManageShopAccess,
+    queryKey: ["team-shop-branches", business.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("branches")
+        .select("id,name,kind")
+        .eq("business_id", business.id)
+        .eq("status", "active")
+        .eq("kind", "branch")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const shopAssignments = useQuery({
+    enabled: canManageShopAccess,
+    queryKey: ["team-shop-access", business.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_finance_branch_access")
+        .select("user_id,branch_id")
+        .eq("business_id", business.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const memberPermissions = useQuery({
+    enabled: isOwner,
+    queryKey: ["team-member-permissions", business.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("business_access_permissions")
+        .select("access_role_id,user_id,module,permission,allowed")
+        .eq("business_id", business.id);
       if (error) throw error;
       return data;
     },
@@ -118,6 +170,31 @@ function TeamPage() {
     onError: (e) => toast.error(friendlyError(e)),
   });
 
+  const assignShop = useMutation({
+    mutationFn: async ({
+      userId: targetUserId,
+      branchId,
+      enabled,
+    }: {
+      userId: string;
+      branchId: string;
+      enabled: boolean;
+    }) => {
+      const { error } = await supabase.rpc("assign_partner_finance_branch_access", {
+        _biz: business.id,
+        _user: targetUserId,
+        _branch: branchId,
+        _enabled: enabled,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Shop access updated");
+      void qc.invalidateQueries({ queryKey: ["team-shop-access", business.id] });
+    },
+    onError: (error) => toast.error(friendlyError(error)),
+  });
+
   const notify = useMutation({
     mutationFn: async () => {
       if (!notifyTo) return;
@@ -140,6 +217,7 @@ function TeamPage() {
   });
 
   const sel = "h-9 rounded-md border border-input bg-background px-3 text-sm";
+  const shopMember = data?.find((member) => member.id === shopMemberId);
   return (
     <div>
       <PageHeader
@@ -210,6 +288,7 @@ function TeamPage() {
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Role</TableHead>
+              {canManageShopAccess && <TableHead>Shop access</TableHead>}
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -234,6 +313,32 @@ function TeamPage() {
                     ROLE_LABELS[m.role]
                   )}
                 </TableCell>
+                {canManageShopAccess && (
+                  <TableCell>
+                    {SHOP_STAFF_ROLES.includes(m.role) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShopMemberId(m.id)}
+                        disabled={shops.isLoading || shopAssignments.isLoading}
+                      >
+                        Manage shops
+                        {shopAssignments.data && (
+                          <span className="ml-1 text-muted-foreground">
+                            (
+                            {
+                              shopAssignments.data.filter((entry) => entry.user_id === m.user_id)
+                                .length
+                            }
+                            )
+                          </span>
+                        )}
+                      </Button>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Not shop-scoped</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     {canNotify && m.user_id !== userId && (
@@ -266,6 +371,118 @@ function TeamPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!shopMember} onOpenChange={(open) => !open && setShopMemberId("")}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Shop access — {shopMember?.display_name ?? ROLE_LABELS[shopMember?.role ?? "viewer"]}
+            </DialogTitle>
+          </DialogHeader>
+          {shopMember && (
+            <div className="space-y-6">
+              <section className="space-y-3">
+                <div>
+                  <h3 className="font-medium">Assigned shops</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Shop assignment limits this member's sales, stock, customer, and closing data to
+                    the selected shops.
+                  </p>
+                </div>
+                {shops.error || shopAssignments.error ? (
+                  <p className="text-sm text-destructive">
+                    {friendlyError(shops.error ?? shopAssignments.error)}
+                  </p>
+                ) : shops.isLoading || shopAssignments.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading shop access…</p>
+                ) : shops.data?.length ? (
+                  <div className="space-y-2">
+                    {shops.data.map((shop) => {
+                      const assigned = (shopAssignments.data ?? []).some(
+                        (entry) =>
+                          entry.user_id === shopMember.user_id && entry.branch_id === shop.id,
+                      );
+                      return (
+                        <Label
+                          key={shop.id}
+                          className="flex items-center gap-3 rounded-md border p-3"
+                        >
+                          <Checkbox
+                            checked={assigned}
+                            disabled={assignShop.isPending}
+                            onCheckedChange={(checked) =>
+                              assignShop.mutate({
+                                userId: shopMember.user_id,
+                                branchId: shop.id,
+                                enabled: checked === true,
+                              })
+                            }
+                          />
+                          <span>{shop.name}</span>
+                        </Label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No active brand shops. Create a shop before assigning staff.
+                  </p>
+                )}
+              </section>
+
+              <section className="space-y-3 border-t pt-4">
+                <div>
+                  <h3 className="font-medium">Module permissions</h3>
+                  <p className="text-sm text-muted-foreground">
+                    These permissions apply to every assigned shop; shop assignment still restricts
+                    which shop data the member can access.
+                  </p>
+                </div>
+                {isOwner ? (
+                  memberPermissions.error ? (
+                    <p className="text-sm text-destructive">
+                      {friendlyError(memberPermissions.error)}
+                    </p>
+                  ) : memberPermissions.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading permissions…</p>
+                  ) : (
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {SHOP_PERMISSION_MODULES.map(({ module, label }) => {
+                        const actions = effectiveModulePermissions(
+                          shopMember,
+                          memberPermissions.data ?? [],
+                          module,
+                        );
+                        const actionLabels = ACCESS_ACTIONS.filter(({ key }) =>
+                          actions.includes(key),
+                        ).map(({ label: actionLabel }) => actionLabel);
+                        return (
+                          <li key={module} className="rounded-md border p-3 text-sm">
+                            <span className="font-medium">{label}: </span>
+                            <span className="text-muted-foreground">
+                              {actionLabels.length ? actionLabels.join(", ") : "No permissions"}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Detailed module permissions can be viewed by the business owner in Advanced
+                    access.
+                  </p>
+                )}
+                {isOwner && (
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/app/access-control">Configure module permissions</Link>
+                  </Button>
+                )}
+              </section>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!notifyTo} onOpenChange={(o) => !o && setNotifyTo(null)}>
         <DialogContent>

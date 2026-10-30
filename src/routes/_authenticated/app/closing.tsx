@@ -11,8 +11,10 @@ import { hasAccess } from "@/lib/access-control";
 import { bdt, friendlyError } from "@/lib/format";
 import { useMoneyAccounts } from "@/lib/finance";
 import { useBranches } from "@/lib/finance";
+import { dhakaDate } from "@/lib/dhaka-date";
+import { closingCollectionTotals, closingOutflowTotals } from "@/lib/closing";
 import { PageHeader } from "@/components/erp/EntityManager";
-import { F, selectCls, today } from "@/components/erp/ui";
+import { F, selectCls } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,7 +72,7 @@ function Closing() {
   const accounts = useMoneyAccounts(business.id);
   const [branchId, setBranchId] = useState("");
   const [acc, setAcc] = useState("");
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(dhakaDate());
   const [actual, setActual] = useState("");
   const [note, setNote] = useState("");
   const [differenceReason, setDifferenceReason] = useState("");
@@ -96,19 +98,26 @@ function Closing() {
         .from("money_transactions")
         .select("txn_date,direction,amount,kind,branch_id")
         .eq("account_id", account)
-        .lte("txn_date", date);
+        .lte("txn_date", date)
+        .order("id", { ascending: true });
       if (cash.find((item) => item.id === account)?.branch_id === branch) {
         transactionQuery.or(`branch_id.eq.${branch},branch_id.is.null`);
       } else {
         transactionQuery.eq("branch_id", branch);
       }
-      const [ma, t, h] = await Promise.all([
+      const transactions = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await transactionQuery.range(offset, offset + 999);
+        if (error) throw error;
+        transactions.push(...data);
+        if (data.length < 1000) break;
+      }
+      const [ma, h, prior, selected] = await Promise.all([
         supabase
           .from("money_accounts")
           .select("opening_balance,branch_id")
           .eq("id", account)
           .single(),
-        transactionQuery,
         supabase
           .from("daily_closings")
           .select("*")
@@ -116,64 +125,89 @@ function Closing() {
           .eq("branch_id", branch)
           .order("closing_date", { ascending: false })
           .limit(30),
+        supabase
+          .from("daily_closings")
+          .select("closing_date,actual")
+          .eq("account_id", account)
+          .eq("branch_id", branch)
+          .lt("closing_date", date)
+          .order("closing_date", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("daily_closings")
+          .select("*")
+          .eq("account_id", account)
+          .eq("branch_id", branch)
+          .eq("closing_date", date)
+          .maybeSingle(),
       ]);
-      for (const x of [ma, t, h]) if (x.error) throw x.error;
-      const priorClose = h.data!.find((closing) => closing.closing_date < date);
+      for (const x of [ma, h, prior, selected]) if (x.error) throw x.error;
+      const priorClose = prior.data;
       let opening = priorClose
         ? Number(priorClose.actual)
         : ma.data!.branch_id === branch
           ? Number(ma.data!.opening_balance)
           : 0;
       const day: Record<string, number> = {};
-      for (const r of t.data!) {
+      for (const r of transactions) {
         const s = r.direction === "in" ? Number(r.amount) : -Number(r.amount);
         if (r.txn_date < date && (!priorClose || r.txn_date > priorClose.closing_date))
           opening += s;
         else day[r.kind] = (day[r.kind] ?? 0) + s;
       }
-      return { opening, day, history: h.data! };
+      return { opening, day, history: h.data!, selected: selected.data };
     },
   });
+  const branchAccountIds = (accounts.data ?? [])
+    .filter((item) => item.branch_id === branch)
+    .map((item) => item.id)
+    .filter((id): id is string => Boolean(id));
   const dailyCollections = useQuery({
-    enabled: !!branch,
-    queryKey: ["closing-collections", business.id, branch, date],
+    enabled: !!branch && accounts.isSuccess,
+    queryKey: ["closing-collections", business.id, branch, date, branchAccountIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const branchTransactions = supabase
         .from("money_transactions")
-        .select("amount,direction,kind,method")
+        .select("id,account_id,amount,direction,kind,method,reversed_at")
         .eq("business_id", business.id)
         .eq("branch_id", branch)
-        .eq("txn_date", date);
-      if (error) throw error;
-      return data ?? [];
+        .eq("txn_date", date)
+        .order("id", { ascending: true });
+      const transactions = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await branchTransactions.range(offset, offset + 999);
+        if (error) throw error;
+        transactions.push(...data);
+        if (data.length < 1000) break;
+      }
+      if (branchAccountIds.length) {
+        const legacyTransactions = supabase
+          .from("money_transactions")
+          .select("id,account_id,amount,direction,kind,method,reversed_at")
+          .eq("business_id", business.id)
+          .is("branch_id", null)
+          .eq("txn_date", date)
+          .in("account_id", branchAccountIds)
+          .order("id", { ascending: true });
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await legacyTransactions.range(offset, offset + 999);
+          if (error) throw error;
+          transactions.push(...data);
+          if (data.length < 1000) break;
+        }
+      }
+      const accountKinds = new Map((accounts.data ?? []).map((item) => [item.id, item.kind]));
+      return [
+        ...new Map(transactions.map((transaction) => [transaction.id, transaction])).values(),
+      ].map((transaction) => ({
+        ...transaction,
+        account_kind: accountKinds.get(transaction.account_id) ?? null,
+      }));
     },
   });
-  const cashCollection = (dailyCollections.data ?? []).reduce(
-    (sum, item) =>
-      sum + (item.direction === "in" && item.method === "cash" ? Number(item.amount) : 0),
-    0,
-  );
-  const bankCollection = (dailyCollections.data ?? []).reduce(
-    (sum, item) =>
-      sum + (item.direction === "in" && item.method === "bank" ? Number(item.amount) : 0),
-    0,
-  );
-  const mfsCollection = (dailyCollections.data ?? []).reduce(
-    (sum, item) =>
-      sum +
-      (item.direction === "in" && ["bkash", "nagad", "rocket"].includes(item.method ?? "")
-        ? Number(item.amount)
-        : 0),
-    0,
-  );
-  const refundTotal = (dailyCollections.data ?? []).reduce(
-    (sum, item) =>
-      sum +
-      (item.direction === "out" && (item.kind.includes("refund") || item.kind.includes("reversal"))
-        ? Number(item.amount)
-        : 0),
-    0,
-  );
+  const tenderTotals = closingCollectionTotals(dailyCollections.data ?? []);
+  const outflowTotals = closingOutflowTotals(dailyCollections.data ?? []);
   const cin = Object.values(calc.data?.day ?? {})
     .filter((v) => v > 0)
     .reduce((a, b) => a + b, 0);
@@ -182,7 +216,7 @@ function Closing() {
     .reduce((a, b) => a + b, 0);
   const expected = (calc.data?.opening ?? 0) + cin - cout;
   const variance = actual === "" ? 0 : Number(actual) - expected;
-  const closed = calc.data?.history.find((h) => h.closing_date === date);
+  const closed = calc.data?.selected;
 
   const sendReport = useServerFn(sendDailyReportNow);
   const save = useMutation({
@@ -271,7 +305,12 @@ function Closing() {
           </select>
         </F>
         <F label="Date">
-          <Input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            type="date"
+            value={date}
+            max={dhakaDate()}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </F>
       </div>
       {!accessibleBranches.length &&
@@ -292,21 +331,35 @@ function Closing() {
           No active cash account is assigned to this shop. Configure one before closing the day.
         </p>
       )}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Cash collected", cashCollection],
-          ["Bank collected", bankCollection],
-          ["MFS collected", mfsCollection],
-          ["Refunds", refundTotal],
-        ].map(([label, amount]) => (
-          <div key={label} className="rounded-lg border bg-card p-4">
-            <div className="text-sm text-muted-foreground">{label}</div>
-            <div className="num mt-1 text-lg font-semibold">{bdt(Number(amount))}</div>
-          </div>
-        ))}
-      </div>
+      {dailyCollections.error ? (
+        <p className="mb-6 text-sm text-destructive">{friendlyError(dailyCollections.error)}</p>
+      ) : dailyCollections.isPending ? (
+        <p className="mb-6 text-sm text-muted-foreground">Loading shop collections…</p>
+      ) : (
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Cash received", tenderTotals.cash],
+            ["Card received", tenderTotals.card],
+            ["Bank / cheque received", tenderTotals.bank],
+            ["Mobile payments", tenderTotals.mobile],
+            ["Expenses", outflowTotals.expenses],
+            ["Sales / finance refunds", outflowTotals.refunds],
+          ].map(([label, amount]) => (
+            <div key={label} className="rounded-lg border bg-card p-4">
+              <div className="text-sm text-muted-foreground">{label}</div>
+              <div className="num mt-1 text-lg font-semibold">{bdt(Number(amount))}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-5">
+          {calc.error && (
+            <p className="mb-3 text-sm text-destructive">{friendlyError(calc.error)}</p>
+          )}
+          {calc.isPending && (
+            <p className="mb-3 text-sm text-muted-foreground">Loading closing balance…</p>
+          )}
           {row("Opening cash", calc.data?.opening ?? 0)}
           {Object.entries(calc.data?.day ?? {}).map(([k, v]) =>
             row(`${v > 0 ? "+" : "−"} ${k.replace(/_/g, " ")}`, Math.abs(v)),
@@ -319,6 +372,13 @@ function Closing() {
                 {bdt(closed.variance)}
               </span>
               <div className="mt-1">
+                <div className="num">
+                  Cash {bdt(closed.cash_collection)} · Card {bdt(closed.card_collection)} · Bank/
+                  cheque {bdt(closed.bank_collection)} · Mobile {bdt(closed.mfs_collection)}
+                </div>
+                <div className="num mt-1">
+                  Refunds {bdt(closed.refund_total)} · Adjustments {bdt(closed.adjustment_total)}
+                </div>
                 Status: {closed.closing_status.replace(/_/g, " ")}
                 {closed.difference_reason && (
                   <p className="mt-1 text-muted-foreground">
@@ -386,6 +446,8 @@ function Closing() {
                 <Button
                   disabled={
                     save.isPending ||
+                    calc.isPending ||
+                    !calc.data ||
                     actual === "" ||
                     Number(actual) < 0 ||
                     (Math.abs(variance) >= 0.01 && differenceReason.trim().length < 3)
