@@ -31,6 +31,7 @@ type Props = {
   multi?: boolean;
   label?: string;
   size?: "sm" | "default" | "icon";
+  vibrateSuccess?: boolean;
 };
 
 type ZoomCapabilities = MediaTrackCapabilities & {
@@ -41,7 +42,13 @@ type ZoomSettings = MediaTrackSettings & { zoom?: number };
 type ZoomConstraintSet = MediaTrackConstraintSet & { zoom?: ConstrainDouble };
 
 /** Camera barcode / QR scanner. Multi mode keeps scanning and collects a bulk list. */
-export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Props) {
+export function ScanButton({
+  onCodes,
+  multi = true,
+  label,
+  size = "icon",
+  vibrateSuccess = true,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [paste, setPaste] = useState("");
@@ -119,7 +126,7 @@ export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Prop
             setTimeout(() => {
               if (last.current === code) last.current = "";
             }, 1500);
-            navigator.vibrate?.(60);
+            if (vibrateSuccess) navigator.vibrate?.(60);
             if (!multi) {
               cb.current([code]);
               activeControls.stop();
@@ -177,7 +184,7 @@ export function ScanButton({ onCodes, multi = true, label, size = "icon" }: Prop
       zoomTrack.current = null;
       activeScanner?.stop();
     };
-  }, [open, multi]);
+  }, [open, multi, vibrateSuccess]);
 
   function applyZoom(value: number) {
     const track = zoomTrack.current;

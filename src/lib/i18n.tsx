@@ -13,6 +13,7 @@ export const dict = {
   newSale: { en: "New Sale", bn: "নতুন বিক্রি" },
   salesHistory: { en: "Sales History", bn: "বিক্রির তালিকা" },
   dueCollection: { en: "Due Collection", bn: "বাকি আদায়" },
+  fieldSales: { en: "Field Sales", bn: "ফিল্ড সেলস" },
   ledger: { en: "Party Ledger", bn: "লেজার" },
   transfers: { en: "Stock Transfer", bn: "স্টক ট্রান্সফার" },
   warranty: { en: "Warranty Claims", bn: "ওয়ারেন্টি" },

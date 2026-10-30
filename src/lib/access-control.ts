@@ -77,6 +77,7 @@ const ROUTES: readonly [string, AccessModule][] = [
   ["/app/customer-portal", "customer_portal"],
   ["/app/daily-reports", "daily_reports"],
   ["/app/due-collection", "due_collection"],
+  ["/app/field-sales", "sales"],
   ["/app/brand-shops", "branches"],
   ["/app/company-profile", "company_profile"],
   ["/app/sync-history", "sync_history"],

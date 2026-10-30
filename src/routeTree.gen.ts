@@ -39,6 +39,7 @@ import { Route as AuthenticatedAppDeadSlowStockRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppDealersRouteImport } from './routes/_authenticated/app/dealers'
 import { Route as AuthenticatedAppDueCollectionRouteImport } from './routes/_authenticated/app/due-collection'
 import { Route as AuthenticatedAppExpensesRouteImport } from './routes/_authenticated/app/expenses'
+import { Route as AuthenticatedAppFieldSalesRouteImport } from './routes/_authenticated/app/field-sales'
 import { Route as AuthenticatedAppGuardianRouteImport } from './routes/_authenticated/app/guardian'
 import { Route as AuthenticatedAppGuardianAnomaliesRouteImport } from './routes/_authenticated/app/guardian-anomalies'
 import { Route as AuthenticatedAppGuardianChatRouteImport } from './routes/_authenticated/app/guardian-chat'
@@ -256,6 +257,12 @@ const AuthenticatedAppExpensesRoute =
   AuthenticatedAppExpensesRouteImport.update({
     id: '/expenses',
     path: '/expenses',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFieldSalesRoute =
+  AuthenticatedAppFieldSalesRouteImport.update({
+    id: '/field-sales',
+    path: '/field-sales',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
 const AuthenticatedAppGuardianRoute =
@@ -593,6 +600,7 @@ export interface FileRoutesByFullPath {
   '/app/dealers': typeof AuthenticatedAppDealersRoute
   '/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
   '/app/expenses': typeof AuthenticatedAppExpensesRoute
+  '/app/field-sales': typeof AuthenticatedAppFieldSalesRoute
   '/app/guardian': typeof AuthenticatedAppGuardianRoute
   '/app/guardian-anomalies': typeof AuthenticatedAppGuardianAnomaliesRoute
   '/app/guardian-chat': typeof AuthenticatedAppGuardianChatRoute
@@ -676,6 +684,7 @@ export interface FileRoutesByTo {
   '/app/dealers': typeof AuthenticatedAppDealersRoute
   '/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
   '/app/expenses': typeof AuthenticatedAppExpensesRoute
+  '/app/field-sales': typeof AuthenticatedAppFieldSalesRoute
   '/app/guardian': typeof AuthenticatedAppGuardianRoute
   '/app/guardian-anomalies': typeof AuthenticatedAppGuardianAnomaliesRoute
   '/app/guardian-chat': typeof AuthenticatedAppGuardianChatRoute
@@ -762,6 +771,7 @@ export interface FileRoutesById {
   '/_authenticated/app/dealers': typeof AuthenticatedAppDealersRoute
   '/_authenticated/app/due-collection': typeof AuthenticatedAppDueCollectionRoute
   '/_authenticated/app/expenses': typeof AuthenticatedAppExpensesRoute
+  '/_authenticated/app/field-sales': typeof AuthenticatedAppFieldSalesRoute
   '/_authenticated/app/guardian': typeof AuthenticatedAppGuardianRoute
   '/_authenticated/app/guardian-anomalies': typeof AuthenticatedAppGuardianAnomaliesRoute
   '/_authenticated/app/guardian-chat': typeof AuthenticatedAppGuardianChatRoute
@@ -848,6 +858,7 @@ export interface FileRouteTypes {
     | '/app/dealers'
     | '/app/due-collection'
     | '/app/expenses'
+    | '/app/field-sales'
     | '/app/guardian'
     | '/app/guardian-anomalies'
     | '/app/guardian-chat'
@@ -931,6 +942,7 @@ export interface FileRouteTypes {
     | '/app/dealers'
     | '/app/due-collection'
     | '/app/expenses'
+    | '/app/field-sales'
     | '/app/guardian'
     | '/app/guardian-anomalies'
     | '/app/guardian-chat'
@@ -1016,6 +1028,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/dealers'
     | '/_authenticated/app/due-collection'
     | '/_authenticated/app/expenses'
+    | '/_authenticated/app/field-sales'
     | '/_authenticated/app/guardian'
     | '/_authenticated/app/guardian-anomalies'
     | '/_authenticated/app/guardian-chat'
@@ -1291,6 +1304,13 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/app/expenses'
       preLoaderRoute: typeof AuthenticatedAppExpensesRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/field-sales': {
+      id: '/_authenticated/app/field-sales'
+      path: '/field-sales'
+      fullPath: '/app/field-sales'
+      preLoaderRoute: typeof AuthenticatedAppFieldSalesRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/_authenticated/app/guardian': {
@@ -1690,6 +1710,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppDealersRoute: typeof AuthenticatedAppDealersRoute
   AuthenticatedAppDueCollectionRoute: typeof AuthenticatedAppDueCollectionRoute
   AuthenticatedAppExpensesRoute: typeof AuthenticatedAppExpensesRoute
+  AuthenticatedAppFieldSalesRoute: typeof AuthenticatedAppFieldSalesRoute
   AuthenticatedAppGuardianRoute: typeof AuthenticatedAppGuardianRoute
   AuthenticatedAppGuardianAnomaliesRoute: typeof AuthenticatedAppGuardianAnomaliesRoute
   AuthenticatedAppGuardianChatRoute: typeof AuthenticatedAppGuardianChatRoute
@@ -1769,6 +1790,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppDealersRoute: AuthenticatedAppDealersRoute,
   AuthenticatedAppDueCollectionRoute: AuthenticatedAppDueCollectionRoute,
   AuthenticatedAppExpensesRoute: AuthenticatedAppExpensesRoute,
+  AuthenticatedAppFieldSalesRoute: AuthenticatedAppFieldSalesRoute,
   AuthenticatedAppGuardianRoute: AuthenticatedAppGuardianRoute,
   AuthenticatedAppGuardianAnomaliesRoute:
     AuthenticatedAppGuardianAnomaliesRoute,

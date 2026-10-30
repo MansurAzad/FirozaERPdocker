@@ -143,6 +143,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
       { to: "/app/emi", icon: Receipt, k: "emi" },
       { to: "/app/partner-finance", icon: Handshake, k: "partnerFinance" },
       { to: "/app/due-collection", icon: HandCoins, k: "dueCollection" },
+      { to: "/app/field-sales", icon: Truck, k: "fieldSales" },
     ],
   },
   {

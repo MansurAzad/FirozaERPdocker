@@ -2805,6 +2805,7 @@ export type Database = {
           business_id: string;
           cost: number;
           created_at: string;
+          field_sales_trip_id: string | null;
           id: string;
           imei1: string;
           imei2: string | null;
@@ -2819,6 +2820,7 @@ export type Database = {
           business_id: string;
           cost?: number;
           created_at?: string;
+          field_sales_trip_id?: string | null;
           id?: string;
           imei1: string;
           imei2?: string | null;
@@ -2833,6 +2835,7 @@ export type Database = {
           business_id?: string;
           cost?: number;
           created_at?: string;
+          field_sales_trip_id?: string | null;
           id?: string;
           imei1?: string;
           imei2?: string | null;
@@ -4139,6 +4142,132 @@ export type Database = {
           },
         ];
       };
+      field_sales_trips: {
+        Row: {
+          business_id: string;
+          cash_account_id: string;
+          id: string;
+          opened_at: string;
+          opened_by: string;
+          sales_branch_id: string;
+          salesman_id: string;
+          salesman_user_id: string;
+          settled_at: string | null;
+          settled_by: string | null;
+          status: string;
+          stock_branch_id: string;
+        };
+        Insert: {
+          business_id: string;
+          cash_account_id: string;
+          id?: string;
+          opened_at?: string;
+          opened_by?: string;
+          sales_branch_id: string;
+          salesman_id: string;
+          salesman_user_id: string;
+          settled_at?: string | null;
+          settled_by?: string | null;
+          status?: string;
+          stock_branch_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["field_sales_trips"]["Insert"]>;
+        Relationships: [];
+      };
+      field_sales_trip_items: {
+        Row: {
+          business_id: string;
+          id: string;
+          qty_damaged: number;
+          qty_issued: number;
+          qty_returned: number;
+          trip_id: string;
+          unit_cost: number;
+          variant_id: string;
+        };
+        Insert: {
+          business_id: string;
+          id?: string;
+          qty_damaged?: number;
+          qty_issued: number;
+          qty_returned?: number;
+          trip_id: string;
+          unit_cost?: number;
+          variant_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["field_sales_trip_items"]["Insert"]>;
+        Relationships: [];
+      };
+      field_sales_trip_imeis: {
+        Row: {
+          business_id: string;
+          imei_id: string;
+          status: string;
+          trip_id: string;
+          trip_item_id: string;
+        };
+        Insert: {
+          business_id: string;
+          imei_id: string;
+          status?: string;
+          trip_id: string;
+          trip_item_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["field_sales_trip_imeis"]["Insert"]>;
+        Relationships: [];
+      };
+      field_sales_settlements: {
+        Row: {
+          business_id: string;
+          cash_counted: number;
+          deposit_account_id: string;
+          id: string;
+          reason: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          review_note: string | null;
+          status: string;
+          submitted_at: string;
+          submitted_by: string;
+          transfer_ref: string | null;
+          trip_id: string;
+        };
+        Insert: {
+          business_id: string;
+          cash_counted: number;
+          deposit_account_id: string;
+          id?: string;
+          reason: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_note?: string | null;
+          status?: string;
+          submitted_at?: string;
+          submitted_by: string;
+          transfer_ref?: string | null;
+          trip_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["field_sales_settlements"]["Insert"]>;
+        Relationships: [];
+      };
+      field_sales_settlement_items: {
+        Row: {
+          business_id: string;
+          damaged_qty: number;
+          good_qty: number;
+          settlement_id: string;
+          trip_item_id: string;
+        };
+        Insert: {
+          business_id: string;
+          damaged_qty?: number;
+          good_qty?: number;
+          settlement_id: string;
+          trip_item_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["field_sales_settlement_items"]["Insert"]>;
+        Relationships: [];
+      };
       sales: {
         Row: {
           branch_id: string;
@@ -4152,6 +4281,7 @@ export type Database = {
           due: number;
           id: string;
           invoice_no: string;
+          field_sales_trip_id: string | null;
           notes: string | null;
           paid: number;
           partner_financed: boolean;
@@ -4174,6 +4304,7 @@ export type Database = {
           due?: number;
           id?: string;
           invoice_no: string;
+          field_sales_trip_id?: string | null;
           notes?: string | null;
           paid?: number;
           partner_financed?: boolean;
@@ -4196,6 +4327,7 @@ export type Database = {
           due?: number;
           id?: string;
           invoice_no?: string;
+          field_sales_trip_id?: string | null;
           notes?: string | null;
           paid?: number;
           partner_financed?: boolean;
@@ -6279,7 +6411,42 @@ export type Database = {
         Args: { _biz: string; _data: Json };
         Returns: string;
       };
+      approve_field_sales_settlement: {
+        Args: { _biz: string; _note: string; _trip: string };
+        Returns: undefined;
+      };
+      collect_field_sales_payment: {
+        Args: {
+          _amount: number;
+          _biz: string;
+          _customer: string;
+          _date: string;
+          _method: Database["public"]["Enums"]["payment_method"];
+          _note: string;
+          _trip: string;
+          _txn_ref: string;
+        };
+        Returns: string;
+      };
+      create_field_sales_sale: {
+        Args: { _biz: string; _data: Json; _trip: string };
+        Returns: string;
+      };
+      create_field_sales_trip: { Args: { _biz: string; _data: Json }; Returns: string };
       create_sale: { Args: { _biz: string; _data: Json }; Returns: string };
+      get_field_sales_deposit_accounts: {
+        Args: { _biz: string; _trip: string };
+        Returns: {
+          branch_id: string | null;
+          id: string;
+          kind: Database["public"]["Enums"]["money_kind"];
+          name: string;
+        }[];
+      };
+      get_field_sales_trip_summary: {
+        Args: { _biz: string; _trip: string };
+        Returns: Json;
+      };
       request_sale_exception: {
         Args: { _biz: string; _data: Json; _reason: string };
         Returns: string;
@@ -6288,8 +6455,23 @@ export type Database = {
         Args: { _biz: string; _id: string; _reason: string };
         Returns: undefined;
       };
+      reject_field_sales_settlement: {
+        Args: { _biz: string; _reason: string; _trip: string };
+        Returns: undefined;
+      };
       create_sales_return: {
         Args: { _biz: string; _data: Json };
+        Returns: string;
+      };
+      submit_field_sales_settlement: {
+        Args: {
+          _biz: string;
+          _cash_counted: number;
+          _deposit_account: string;
+          _reason: string;
+          _returns: Json;
+          _trip: string;
+        };
         Returns: string;
       };
       create_stock_transfer: {
