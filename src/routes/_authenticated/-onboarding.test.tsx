@@ -43,7 +43,9 @@ describe("onboarding access-pending flow", () => {
     expect(screen.getByText(/Owner-কে আপনার ইমেইলটি Team পেজ থেকে যোগ করে/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /অ্যাক্সেস যাচাই করুন/i }));
-    expect(navigateMock).toHaveBeenCalledWith({ to: "/app", replace: true });
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith({ to: "/app", replace: true });
+    });
 
     navigateMock.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /সাইন আউট/i }));
