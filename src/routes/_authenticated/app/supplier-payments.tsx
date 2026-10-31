@@ -87,7 +87,11 @@ function SupplierPayments() {
     setF({
       date: today(),
       method: "cash",
-      account: accounts.data?.[0]?.id ?? "",
+      account:
+        accounts.data?.find((account) => account.status === "active" && account.kind === "cash")
+          ?.id ??
+        accounts.data?.find((account) => account.status === "active")?.id ??
+        "",
       amount: String(Number(r.current_payable ?? 0)),
     });
     setPay({ id: r.supplier_id!, name: r.name!, due: Number(r.current_payable ?? 0) });
@@ -254,7 +258,7 @@ function SupplierPayments() {
                 ))}
               </select>
             </F>
-            <F label="Date">
+            <F label="Date" optional initiallyEnabled={Boolean(f["date"])}>
               <Input
                 type="date"
                 value={f["date"] ?? ""}
@@ -262,14 +266,14 @@ function SupplierPayments() {
               />
             </F>
             {f["method"] !== "cash" && (
-              <F label="Transaction ID / Ref">
+              <F label="Transaction ID / Ref" optional initiallyEnabled={Boolean(f["ref"])}>
                 <Input
                   value={f["ref"] ?? ""}
                   onChange={(e) => setF({ ...f, ref: e.target.value })}
                 />
               </F>
             )}
-            <F label="Note">
+            <F label="Note" optional initiallyEnabled={Boolean(f["note"])}>
               <Input
                 value={f["note"] ?? ""}
                 onChange={(e) => setF({ ...f, note: e.target.value })}

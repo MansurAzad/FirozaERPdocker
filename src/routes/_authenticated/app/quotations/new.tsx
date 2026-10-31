@@ -271,7 +271,7 @@ function QuotationForm() {
                 ))}
               </select>
             </F>
-            <F label="Customer (optional)">
+            <F label="Customer" optional>
               <select
                 className={selectCls}
                 value={customer}
@@ -289,7 +289,7 @@ function QuotationForm() {
             <F label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </F>
-            <F label="Valid until">
+            <F label="Valid until" optional initiallyEnabled={Boolean(validUntil)}>
               <Input
                 type="date"
                 value={validUntil}
@@ -398,7 +398,7 @@ function QuotationForm() {
                             }
                           />
                         </F>
-                        <F label="Discount">
+                        <F label="Discount" optional initiallyEnabled={Boolean(l.discount)}>
                           <Input
                             type="number"
                             step="0.01"
@@ -424,14 +424,14 @@ function QuotationForm() {
           </section>
 
           <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm">
-            <F label="Notes">
+            <F label="Notes" optional initiallyEnabled={Boolean(notes)}>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Visible on the printed document."
               />
             </F>
-            <F label="Terms & conditions">
+            <F label="Terms & conditions" optional initiallyEnabled={Boolean(terms)}>
               <Textarea
                 value={terms}
                 onChange={(e) => setTerms(e.target.value)}

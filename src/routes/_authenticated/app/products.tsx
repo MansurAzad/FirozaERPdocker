@@ -9,6 +9,7 @@ import { useBusiness, useCan } from "@/lib/business";
 import { useI18n } from "@/lib/i18n";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { F } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -424,11 +425,14 @@ function ProductsPage() {
 
   const sel = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
   const selectedCategory = lookups.data?.categories.find((c) => c.id === f.category_id);
-  const input = (k: keyof typeof blank, l: string, type = "text") => (
-    <div className="space-y-1.5">
-      <Label>{l}</Label>
+  const input = (k: keyof typeof blank, l: string, type = "text", optional = false) => (
+    <F
+      label={l}
+      optional={optional}
+      initiallyEnabled={type === "number" ? Number(f[k]) > 0 : Boolean(f[k])}
+    >
       <Input type={type} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-    </div>
+    </F>
   );
 
   return (
@@ -699,10 +703,7 @@ function ProductsPage() {
               </select>
             </div>
             {input("model", "Model *")}
-            <div className="space-y-1.5">
-              <Label>
-                SKU <span className="font-normal text-muted-foreground">(auto)</span>
-              </Label>
+            <F label="SKU (auto)" optional initiallyEnabled={Boolean(f.sku)}>
               <div className="relative">
                 <Barcode className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -712,15 +713,15 @@ function ProductsPage() {
                   onChange={(e) => setF({ ...f, sku: e.target.value })}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Leave blank to generate the next SKU automatically.
               </p>
-            </div>
-            {input("ram", "RAM")}
-            {input("storage", "Storage")}
-            {input("color", "Color")}
-            {input("reorder_level", "Reorder level", "number")}
-            {input("warranty_months", "Warranty (months)", "number")}
+            </F>
+            {input("ram", "RAM", "text", true)}
+            {input("storage", "Storage", "text", true)}
+            {input("color", "Color", "text", true)}
+            {input("reorder_level", "Reorder level", "number", true)}
+            {input("warranty_months", "Warranty (months)", "number", true)}
             {selectedCategory?.is_serialized && (
               <div className="rounded-md border border-primary/25 bg-accent p-4 sm:col-span-3">
                 <div className="flex gap-3">
@@ -739,7 +740,7 @@ function ProductsPage() {
               Price levels (৳)
             </div>
             {PRICE_FIELDS.map(([k, l]) => (
-              <div key={k}>{input(k, l, "number")}</div>
+              <div key={k}>{input(k, l, "number", k === "min_price")}</div>
             ))}
             {editId && (
               <div className="space-y-1.5">

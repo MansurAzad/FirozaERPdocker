@@ -469,12 +469,22 @@ function MoneyPage() {
                 <F label="Account name *">{inp("name")}</F>
                 {f["akind"] !== "cash" && (
                   <>
-                    <F label="Bank / provider">{inp("bank_name")}</F>
-                    <F label="Bank branch">{inp("bank_branch")}</F>
-                    <F label="Account / wallet number">{inp("account_no")}</F>
+                    <F label="Bank / provider" optional initiallyEnabled={Boolean(f["bank_name"])}>
+                      {inp("bank_name")}
+                    </F>
+                    <F label="Bank branch" optional initiallyEnabled={Boolean(f["bank_branch"])}>
+                      {inp("bank_branch")}
+                    </F>
+                    <F
+                      label="Account / wallet number"
+                      optional
+                      initiallyEnabled={Boolean(f["account_no"])}
+                    >
+                      {inp("account_no")}
+                    </F>
                   </>
                 )}
-                <F label="Shop / branch">
+                <F label="Shop / branch" optional initiallyEnabled={Boolean(f["branch"])}>
                   <select
                     className={selectCls}
                     value={f["branch"] ?? ""}
@@ -515,12 +525,26 @@ function MoneyPage() {
                 <F label="Account name *">{inp("name")}</F>
                 {f["akind"] !== "cash" && (
                   <>
-                    <F label={f["akind"] === "mfs" ? "Provider" : "Bank"}>{inp("bank_name")}</F>
-                    <F label="Bank branch">{inp("bank_branch")}</F>
-                    <F label="Account / wallet number">{inp("account_no")}</F>
+                    <F
+                      label={f["akind"] === "mfs" ? "Provider" : "Bank"}
+                      optional
+                      initiallyEnabled={Boolean(f["bank_name"])}
+                    >
+                      {inp("bank_name")}
+                    </F>
+                    <F label="Bank branch" optional initiallyEnabled={Boolean(f["bank_branch"])}>
+                      {inp("bank_branch")}
+                    </F>
+                    <F
+                      label="Account / wallet number"
+                      optional
+                      initiallyEnabled={Boolean(f["account_no"])}
+                    >
+                      {inp("account_no")}
+                    </F>
                   </>
                 )}
-                <F label="Shop / branch">
+                <F label="Shop / branch" optional initiallyEnabled={Boolean(f["branch"])}>
                   <select
                     className={selectCls}
                     value={f["branch"] ?? ""}
@@ -534,7 +558,13 @@ function MoneyPage() {
                     ))}
                   </select>
                 </F>
-                <F label="Opening balance (৳)">{inp("opening", "number")}</F>
+                <F
+                  label="Opening balance (৳)"
+                  optional
+                  initiallyEnabled={Boolean(f["opening"] && f["opening"] !== "0")}
+                >
+                  {inp("opening", "number")}
+                </F>
               </>
             ) : (
               <>
@@ -559,7 +589,9 @@ function MoneyPage() {
                   </F>
                 )}
                 <F label="Amount (৳) *">{inp("amount", "number")}</F>
-                <F label="Date">{inp("date", "date")}</F>
+                <F label="Date" optional initiallyEnabled={Boolean(f["date"])}>
+                  {inp("date", "date")}
+                </F>
                 {dlg !== "transfer" && (
                   <F label="Method">
                     <select
@@ -576,9 +608,16 @@ function MoneyPage() {
                   </F>
                 )}
                 {dlg !== "transfer" && f["method"] !== "cash" && (
-                  <F label="Transaction ID / Ref">{inp("ref")}</F>
+                  <F label="Transaction ID / Ref" optional initiallyEnabled={Boolean(f["ref"])}>
+                    {inp("ref")}
+                  </F>
                 )}
-                <F label="Note" className="sm:col-span-2">
+                <F
+                  label="Note"
+                  className="sm:col-span-2"
+                  optional
+                  initiallyEnabled={Boolean(f["note"])}
+                >
                   {inp("note")}
                 </F>
               </>
@@ -608,7 +647,7 @@ function MoneyPage() {
               An opposite entry is added and the accounts are reversed. Transfers are cancelled on
               both accounts. To fix an amount, cancel it and enter it again.
             </p>
-            <F label="Reason">
+            <F label="Reason" optional initiallyEnabled={Boolean(reason)}>
               <Input value={reason} onChange={(e) => setReason(e.target.value)} />
             </F>
             <DialogFooter>

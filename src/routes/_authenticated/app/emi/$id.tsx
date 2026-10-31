@@ -288,6 +288,9 @@ function EmiDetail() {
                 ))}
               </select>
             </F>
+            <F label="Note" optional initiallyEnabled={Boolean(note.trim())}>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </F>
           </div>
           <div className="mt-3">
             <Button onClick={() => recv.mutate()} disabled={recv.isPending}>

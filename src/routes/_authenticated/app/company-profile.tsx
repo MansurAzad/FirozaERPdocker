@@ -10,9 +10,9 @@ import { profileSchema } from "@/lib/guardian/safety";
 import { saveGuardianProfile } from "@/lib/guardian.functions";
 import { GuardianNav } from "@/components/erp/GuardianNav";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { F } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { friendlyError } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
@@ -167,8 +167,12 @@ function ProfilePage() {
                 ["trade_license", "Trade license"],
               ] as const
             ).map(([key, label]) => (
-              <div key={key}>
-                <Label htmlFor={key}>{label}</Label>
+              <F
+                key={key}
+                label={label}
+                optional={key !== "name"}
+                initiallyEnabled={Boolean(form[key])}
+              >
                 <Input
                   id={key}
                   required={key === "name"}
@@ -180,7 +184,7 @@ function ProfilePage() {
                     setForm({ ...form, [key]: e.target.value });
                   }}
                 />
-              </div>
+              </F>
             ))}
           </div>
         </section>
@@ -193,8 +197,7 @@ function ProfilePage() {
                 ["address", "Address"],
               ] as const
             ).map(([key, label]) => (
-              <div key={key}>
-                <Label htmlFor={key}>{label}</Label>
+              <F key={key} label={label} optional initiallyEnabled={Boolean(form[key])}>
                 <Input
                   id={key}
                   maxLength={key === "address" ? 500 : 30}
@@ -205,7 +208,7 @@ function ProfilePage() {
                     setForm({ ...form, [key]: e.target.value });
                   }}
                 />
-              </div>
+              </F>
             ))}
             {(
               [
@@ -215,8 +218,12 @@ function ProfilePage() {
                 ["business_hours", "Business hours"],
               ] as const
             ).map(([key, label]) => (
-              <div key={key}>
-                <Label htmlFor={key}>{label}</Label>
+              <F
+                key={key}
+                label={label}
+                optional
+                initiallyEnabled={Boolean(form.guardian_profile[key])}
+              >
                 <Input
                   id={key}
                   type={key === "email" ? "email" : key === "website" ? "url" : "text"}
@@ -239,14 +246,18 @@ function ProfilePage() {
                     });
                   }}
                 />
-              </div>
+              </F>
             ))}
           </div>
         </section>
         <section id="business-context" className="scroll-mt-24 space-y-3">
           <h2 className="text-lg font-semibold">Business context</h2>
-          <div>
-            <Label htmlFor="company-notes">Business context</Label>
+          <F
+            label="Business context"
+            optional
+            className="sm:col-span-2"
+            initiallyEnabled={Boolean(form.guardian_profile.notes)}
+          >
             <Textarea
               id="company-notes"
               maxLength={2000}
@@ -260,7 +271,7 @@ function ProfilePage() {
                 });
               }}
             />
-          </div>
+          </F>
         </section>
         <Button type="submit" disabled={role !== "owner" || mutation.isPending}>
           <Save />

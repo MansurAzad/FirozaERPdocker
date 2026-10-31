@@ -10,6 +10,7 @@ import { useMembers } from "@/lib/reports";
 import { friendlyError } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { F } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -159,12 +160,14 @@ function TaskDetailPage() {
                 if (comment.trim()) addComment.mutate();
               }}
             >
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={2}
-                placeholder="Add a comment…"
-              />
+              <F label="Comment" optional initiallyEnabled={Boolean(comment.trim())}>
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={2}
+                  placeholder="Add a comment…"
+                />
+              </F>
               <Button size="sm" disabled={addComment.isPending || !comment.trim()}>
                 <Send className="h-3.5 w-3.5" />
                 Comment

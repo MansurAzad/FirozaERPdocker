@@ -145,7 +145,7 @@ function BulkPrice() {
       />
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <section className="h-fit space-y-3 rounded-lg border bg-card p-4 shadow-sm">
-          <F label="Update name">
+          <F label="Update name" optional initiallyEnabled={Boolean(name)}>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -186,7 +186,7 @@ function BulkPrice() {
             />
           </F>
           <div className="grid grid-cols-2 gap-2">
-            <F label="Category">
+            <F label="Category" optional initiallyEnabled={Boolean(category)}>
               <select
                 className={selectCls}
                 value={category}
@@ -200,7 +200,7 @@ function BulkPrice() {
                 ))}
               </select>
             </F>
-            <F label="Brand">
+            <F label="Brand" optional initiallyEnabled={Boolean(brand)}>
               <select
                 className={selectCls}
                 value={brand}
@@ -215,7 +215,7 @@ function BulkPrice() {
               </select>
             </F>
           </div>
-          <F label="Note">
+          <F label="Note" optional initiallyEnabled={Boolean(note)}>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
           </F>
           <Button className="w-full" disabled={apply.isPending} onClick={() => apply.mutate()}>

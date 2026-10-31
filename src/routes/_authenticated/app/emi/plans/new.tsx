@@ -82,7 +82,7 @@ function PlanNew() {
           <F label="Downpayment %">
             <Input type="number" step="0.01" value={dp} onChange={(e) => setDp(e.target.value)} />
           </F>
-          <F label="Processing fee">
+          <F label="Processing fee" optional>
             <Input type="number" step="0.01" value={fee} onChange={(e) => setFee(e.target.value)} />
           </F>
         </div>

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { bdt } from "@/lib/format";
 
@@ -8,15 +8,61 @@ export function F({
   label,
   children,
   className,
+  optional = false,
+  initiallyEnabled = false,
 }: {
   label: string;
   children: ReactNode;
   className?: string | undefined;
+  optional?: boolean;
+  initiallyEnabled?: boolean;
 }) {
+  const [enabled, setEnabled] = useState(initiallyEnabled);
+  const lastTouch = useRef(0);
+  useEffect(() => {
+    if (initiallyEnabled) setEnabled(true);
+  }, [initiallyEnabled]);
   return (
     <div className={"space-y-1.5 " + (className ?? "")}>
-      <Label className="text-xs">{label}</Label>
-      {children}
+      <Label className="text-xs">
+        {label}
+        {optional && (
+          <span className="ml-1 font-normal text-muted-foreground">
+            · Optional{enabled ? "" : " · double-click/tap to enable"}
+          </span>
+        )}
+      </Label>
+      {optional ? (
+        <div className="relative min-w-0">
+          <fieldset
+            disabled={!enabled}
+            className={`m-0 min-w-0 border-0 p-0 ${enabled ? "" : "opacity-40"}`}
+          >
+            {children}
+          </fieldset>
+          {!enabled && (
+            <button
+              type="button"
+              className="absolute inset-0 z-10 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Enable optional ${label} field`}
+              onDoubleClick={() => setEnabled(true)}
+              onTouchEnd={(event) => {
+                event.preventDefault();
+                const now = Date.now();
+                if (now - lastTouch.current < 400) setEnabled(true);
+                lastTouch.current = now;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") setEnabled(true);
+              }}
+            >
+              {enabled ? "" : "Double-click or double-tap to enter"}
+            </button>
+          )}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

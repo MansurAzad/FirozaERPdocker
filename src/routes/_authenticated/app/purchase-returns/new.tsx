@@ -305,10 +305,10 @@ function PrForm() {
           )}
 
           <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm sm:grid-cols-3">
-            <F label="Return date">
+            <F label="Return date" optional initiallyEnabled={Boolean(date)}>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </F>
-            <F label="Refund received">
+            <F label="Refund received" optional initiallyEnabled={Number(refund) > 0}>
               <Input
                 type="number"
                 step="0.01"
@@ -316,7 +316,7 @@ function PrForm() {
                 onChange={(e) => setRefund(e.target.value)}
               />
             </F>
-            <F label="Reason" className="sm:col-span-3">
+            <F label="Reason" className="sm:col-span-3" optional initiallyEnabled={Boolean(reason)}>
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
             </F>
           </section>

@@ -363,7 +363,7 @@ function BankReconciliation() {
                 ))}
               </select>
             </F>
-            <F label="Statement date">
+            <F label="Statement date" optional initiallyEnabled={Boolean(f["date"])}>
               <Input
                 type="date"
                 value={f["date"] ?? today()}
@@ -378,7 +378,12 @@ function BankReconciliation() {
                 onChange={(e) => setF({ ...f, statement: e.target.value })}
               />
             </F>
-            <F label="Note" className="sm:col-span-2">
+            <F
+              label="Note"
+              className="sm:col-span-2"
+              optional
+              initiallyEnabled={Boolean(f["note"])}
+            >
               <Input
                 value={f["note"] ?? ""}
                 onChange={(e) => setF({ ...f, note: e.target.value })}

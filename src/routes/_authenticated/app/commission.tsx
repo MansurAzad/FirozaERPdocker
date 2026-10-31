@@ -642,13 +642,13 @@ function Commission() {
                 ))}
               </select>
             </F>
-            <F label="Transaction ID">
+            <F label="Transaction ID" optional initiallyEnabled={Boolean(pf["ref"])}>
               <Input
                 value={pf["ref"] ?? ""}
                 onChange={(e) => setPf({ ...pf, ref: e.target.value })}
               />
             </F>
-            <F label="Note">
+            <F label="Note" optional initiallyEnabled={Boolean(pf["note"])}>
               <Input
                 value={pf["note"] ?? ""}
                 onChange={(e) => setPf({ ...pf, note: e.target.value })}

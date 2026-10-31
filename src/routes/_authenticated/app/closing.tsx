@@ -440,7 +440,7 @@ function Closing() {
                     />
                   </F>
                 )}
-                <F label="Note">
+                <F label="Note" optional initiallyEnabled={Boolean(note)}>
                   <Input value={note} onChange={(e) => setNote(e.target.value)} />
                 </F>
                 <Button

@@ -297,7 +297,26 @@ function DueCollection() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          setF({ date: today(), method: "cash", amount: String(r.current_due) });
+                          const availableAccounts = (accounts.data ?? []).filter(
+                            (account) =>
+                              account.status === "active" &&
+                              (account.branch_id == null || account.branch_id === r.branch_id),
+                          );
+                          const defaultAccount =
+                            availableAccounts.find(
+                              (account) =>
+                                account.kind === "cash" && account.branch_id === r.branch_id,
+                            ) ??
+                            availableAccounts.find(
+                              (account) => account.branch_id === r.branch_id,
+                            ) ??
+                            availableAccounts.find((account) => account.branch_id == null);
+                          setF({
+                            date: today(),
+                            method: "cash",
+                            amount: String(r.current_due),
+                            account: defaultAccount?.id ?? "",
+                          });
                           setPay({
                             id: r.customer_id!,
                             name: r.name!,
@@ -372,14 +391,14 @@ function DueCollection() {
               />
             </F>
             {f["method"] !== "cash" && (
-              <F label="Transaction ID">
+              <F label="Transaction ID" optional initiallyEnabled={Boolean(f["ref"])}>
                 <Input
                   value={f["ref"] ?? ""}
                   onChange={(e) => setF({ ...f, ref: e.target.value })}
                 />
               </F>
             )}
-            <F label="Note">
+            <F label="Note" optional initiallyEnabled={Boolean(f["note"])}>
               <Input
                 value={f["note"] ?? ""}
                 onChange={(e) => setF({ ...f, note: e.target.value })}

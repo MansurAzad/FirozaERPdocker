@@ -872,10 +872,26 @@ function Dealers() {
                 <Button
                   disabled={!canCollect || Number(selectedDealer.current_due ?? 0) <= 0}
                   onClick={() => {
+                    const selectedBranchAccounts = (accounts.data ?? []).filter(
+                      (account) =>
+                        account.status === "active" &&
+                        (account.branch_id == null ||
+                          account.branch_id === selectedDealer.branch_id),
+                    );
+                    const defaultAccount =
+                      selectedBranchAccounts.find(
+                        (account) =>
+                          account.kind === "cash" && account.branch_id === selectedDealer.branch_id,
+                      ) ??
+                      selectedBranchAccounts.find(
+                        (account) => account.branch_id === selectedDealer.branch_id,
+                      ) ??
+                      selectedBranchAccounts.find((account) => account.branch_id == null);
                     setPf({
                       date: today(),
                       method: "cash",
                       amount: String(selectedDealer.current_due ?? 0),
+                      account: defaultAccount?.id ?? "",
                     });
                     setPay({
                       id: selectedDealer.customer_id!,
@@ -906,7 +922,7 @@ function Dealers() {
               saveCredit.mutate();
             }}
           >
-            <F label="Credit limit (৳)">
+            <F label="Credit limit (৳)" optional initiallyEnabled={Number(cf["limit"] ?? 0) > 0}>
               <Input
                 type="number"
                 step="0.01"
@@ -914,7 +930,11 @@ function Dealers() {
                 onChange={(e) => setCf({ ...cf, limit: e.target.value })}
               />
             </F>
-            <F label="Payment terms (days)">
+            <F
+              label="Payment terms (days)"
+              optional
+              initiallyEnabled={Number(cf["terms"] ?? 0) > 0}
+            >
               <Input
                 type="number"
                 value={cf["terms"] ?? ""}
@@ -992,20 +1012,20 @@ function Dealers() {
                 ))}
               </select>
             </F>
-            <F label="Date">
+            <F label="Date" optional initiallyEnabled={Boolean(pf["date"])}>
               <Input
                 type="date"
                 value={pf["date"] ?? ""}
                 onChange={(e) => setPf({ ...pf, date: e.target.value })}
               />
             </F>
-            <F label="Transaction ID">
+            <F label="Transaction ID" optional initiallyEnabled={Boolean(pf["ref"])}>
               <Input
                 value={pf["ref"] ?? ""}
                 onChange={(e) => setPf({ ...pf, ref: e.target.value })}
               />
             </F>
-            <F label="Note">
+            <F label="Note" optional initiallyEnabled={Boolean(pf["note"])}>
               <Input
                 value={pf["note"] ?? ""}
                 onChange={(e) => setPf({ ...pf, note: e.target.value })}

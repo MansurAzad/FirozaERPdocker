@@ -1512,7 +1512,7 @@ function PartnerFinance() {
                 onChange={(e) => setDownpaymentValue(e.target.value)}
               />
             </F>
-            <F label="Down-payment discount type">
+            <F label="Down-payment discount type" optional>
               <select
                 className={selectCls}
                 value={discountMode}
@@ -1522,7 +1522,11 @@ function PartnerFinance() {
                 <option value="percentage">Percentage of down payment</option>
               </select>
             </F>
-            <F label={discountMode === "percentage" ? "Discount rate (%)" : "Discount amount"}>
+            <F
+              label={discountMode === "percentage" ? "Discount rate (%)" : "Discount amount"}
+              optional
+              initiallyEnabled={Number(discountValue) > 0}
+            >
               <Input
                 type="number"
                 min="0"
@@ -1588,7 +1592,11 @@ function PartnerFinance() {
                 onChange={(e) => setCustomerRepayment(e.target.value)}
               />
             </F>
-            <F label="Application reference (optional)">
+            <F
+              label="Application reference"
+              optional
+              initiallyEnabled={Boolean(applicationReference)}
+            >
               <Input
                 value={applicationReference}
                 onChange={(e) => setApplicationReference(e.target.value)}
@@ -1600,7 +1608,7 @@ function PartnerFinance() {
                 onChange={(e) => setApprovalReference(e.target.value)}
               />
             </F>
-            <F label="Notes">
+            <F label="Notes" optional initiallyEnabled={Boolean(saleNotes)}>
               <Input value={saleNotes} onChange={(e) => setSaleNotes(e.target.value)} />
             </F>
           </div>
@@ -2025,7 +2033,7 @@ function PartnerFinance() {
                   ))}
                 </select>
               </F>
-              <F label="Match to financed sale (optional)">
+              <F label="Match to financed sale" optional>
                 <select
                   className={selectCls}
                   value={settlementSaleId}
@@ -2104,7 +2112,7 @@ function PartnerFinance() {
                   ))}
                 </select>
               </F>
-              <F label="Note">
+              <F label="Note" optional initiallyEnabled={Boolean(settlementNote)}>
                 <Input value={settlementNote} onChange={(e) => setSettlementNote(e.target.value)} />
               </F>
             </div>
@@ -2551,7 +2559,7 @@ function PartnerFinance() {
                     maxLength={100}
                   />
                 </F>
-                <F label="Legal name (optional)">
+                <F label="Legal name" optional initiallyEnabled={Boolean(providerForm.legal_name)}>
                   <Input
                     value={providerForm.legal_name}
                     onChange={(e) =>
@@ -2573,7 +2581,7 @@ function PartnerFinance() {
                     </select>
                   </F>
                 )}
-                <F label="Notes">
+                <F label="Notes" optional initiallyEnabled={Boolean(providerForm.notes)}>
                   <Input
                     value={providerForm.notes}
                     onChange={(e) => setProviderForm({ ...providerForm, notes: e.target.value })}

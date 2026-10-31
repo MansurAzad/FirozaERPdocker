@@ -403,10 +403,10 @@ function Transfers() {
                       ))}
                   </select>
                 </F>
-                <F label="Date">
+                <F label="Date" optional initiallyEnabled={Boolean(date)}>
                   <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </F>
-                <F label="Note">
+                <F label="Note" optional initiallyEnabled={Boolean(notes)}>
                   <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </F>
               </div>

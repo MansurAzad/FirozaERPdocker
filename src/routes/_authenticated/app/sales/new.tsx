@@ -525,7 +525,7 @@ function NewSale() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm sm:grid-cols-3">
-            <F label="Customer">
+            <F label="Customer" optional>
               <select
                 className={selectCls}
                 value={customer}
@@ -811,28 +811,26 @@ function NewSale() {
               <dd>{bdt(sub)}</dd>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt className="text-muted-foreground">Discount</dt>
-              <dd>
+              <F label="Discount" optional className="min-w-0 flex-1">
                 <Input
                   type="number"
                   step="0.01"
-                  className="h-8 w-28 text-right"
+                  className="h-8 text-right"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                 />
-              </dd>
+              </F>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt className="text-muted-foreground">VAT / Tax</dt>
-              <dd>
+              <F label="VAT / Tax" optional className="min-w-0 flex-1">
                 <Input
                   type="number"
                   step="0.01"
-                  className="h-8 w-28 text-right"
+                  className="h-8 text-right"
                   value={tax}
                   onChange={(e) => setTax(e.target.value)}
                 />
-              </dd>
+              </F>
             </div>
             <div className="flex justify-between border-t pt-2 font-display text-xl font-semibold">
               <dt>Total</dt>

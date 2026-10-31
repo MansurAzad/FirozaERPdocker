@@ -316,7 +316,7 @@ function PoForm() {
             <F label="Order date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </F>
-            <F label="Expected date">
+            <F label="Expected date" optional initiallyEnabled={Boolean(expected)}>
               <Input type="date" value={expected} onChange={(e) => setExpected(e.target.value)} />
             </F>
           </section>
@@ -418,7 +418,7 @@ function PoForm() {
                             }
                           />
                         </F>
-                        <F label="Line discount">
+                        <F label="Line discount" optional initiallyEnabled={Boolean(l.discount)}>
                           <Input
                             type="number"
                             step="0.01"
@@ -444,10 +444,10 @@ function PoForm() {
           </section>
 
           <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm sm:grid-cols-2">
-            <F label="Notes">
+            <F label="Notes" optional initiallyEnabled={Boolean(notes)}>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
             </F>
-            <F label="Terms">
+            <F label="Terms" optional initiallyEnabled={Boolean(terms)}>
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} />
             </F>
           </section>
@@ -455,7 +455,7 @@ function PoForm() {
 
         <aside className="h-fit space-y-3 rounded-lg border bg-card p-4 shadow-sm lg:sticky lg:top-24">
           <div className="grid grid-cols-2 gap-2">
-            <F label="Header discount">
+            <F label="Header discount" optional initiallyEnabled={Boolean(discount)}>
               <Input
                 type="number"
                 step="0.01"
@@ -463,7 +463,7 @@ function PoForm() {
                 onChange={(e) => setDiscount(e.target.value)}
               />
             </F>
-            <F label="Tax">
+            <F label="Tax" optional initiallyEnabled={Boolean(tax)}>
               <Input
                 type="number"
                 step="0.01"

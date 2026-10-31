@@ -347,7 +347,7 @@ function Journal({ biz, from, to }: { biz: string; from: string; to: string }) {
           }}
         >
           <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
-            <F label="Date">
+            <F label="Date" optional initiallyEnabled={Boolean(jd.date)}>
               <Input
                 type="date"
                 value={jd.date}

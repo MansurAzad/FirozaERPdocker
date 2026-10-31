@@ -200,7 +200,7 @@ function TasksPage() {
             <F label="Title *">
               <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
             </F>
-            <F label="Details">
+            <F label="Details" optional initiallyEnabled={Boolean(description)}>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -209,7 +209,7 @@ function TasksPage() {
               />
             </F>
             <div className="grid gap-3 sm:grid-cols-2">
-              <F label="Assign to">
+              <F label="Assign to" optional initiallyEnabled={Boolean(assignedTo)}>
                 <select
                   className={selectCls}
                   value={assignedTo}
@@ -237,7 +237,7 @@ function TasksPage() {
                 </select>
               </F>
             </div>
-            <F label="Due date">
+            <F label="Due date" optional initiallyEnabled={Boolean(dueDate)}>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </F>
             <DialogFooter>

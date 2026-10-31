@@ -391,7 +391,7 @@ function AdjustmentForm() {
           </section>
 
           <section className="rounded-lg border bg-card p-4 shadow-sm">
-            <F label="Note">
+            <F label="Note" optional initiallyEnabled={Boolean(note)}>
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
             </F>
           </section>

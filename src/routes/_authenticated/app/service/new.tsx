@@ -241,7 +241,7 @@ function ServiceForm() {
                 onChange={(e) => setEstimatedCost(e.target.value)}
               />
             </F>
-            <F label="Note" className="sm:col-span-3">
+            <F label="Note" className="sm:col-span-3" optional initiallyEnabled={Boolean(note)}>
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
             </F>
           </section>

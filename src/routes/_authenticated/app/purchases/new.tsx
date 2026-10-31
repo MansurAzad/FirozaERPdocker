@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { F } from "@/components/erp/ui";
 import { useMoneyAccounts } from "@/lib/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +140,16 @@ function NewPurchase() {
       };
     },
   });
+  useEffect(() => {
+    if (head.branch_id || !lk.data?.branches.length) return;
+    const defaultBranch =
+      lk.data.branches.find((branch) => branch.kind !== "warehouse") ?? lk.data.branches[0];
+    if (defaultBranch) {
+      setHead((current) =>
+        current.branch_id ? current : { ...current, branch_id: defaultBranch.id },
+      );
+    }
+  }, [head.branch_id, lk.data]);
   const vmap = useMemo(() => new Map((lk.data?.variants ?? []).map((v) => [v.id, v])), [lk.data]);
   const selectedBranch = useMemo(
     () => lk.data?.branches.find((branch) => branch.id === head.branch_id),
@@ -163,6 +174,34 @@ function NewPurchase() {
         : (lk.data?.suppliers ?? []),
     [branchSupplierAssignments, lk.data, selectedBranch],
   );
+  const activePaymentAccounts = useMemo(
+    () =>
+      (moneyAccts.data ?? []).filter(
+        (account) =>
+          account.status === "active" &&
+          (account.branch_id === head.branch_id || account.branch_id === null),
+      ),
+    [head.branch_id, moneyAccts.data],
+  );
+  const defaultPaymentAccount =
+    activePaymentAccounts.find(
+      (account) => account.branch_id === head.branch_id && account.kind === "cash",
+    ) ??
+    activePaymentAccounts.find((account) => account.branch_id === head.branch_id) ??
+    activePaymentAccounts.find((account) => account.branch_id === null);
+  useEffect(() => {
+    if (n(pay.paid) <= 0 || moneyAccts.isPending || moneyAccts.error) return;
+    if (activePaymentAccounts.some((account) => account.id === pay.account_id)) return;
+    const accountId = defaultPaymentAccount?.id ?? "";
+    if (pay.account_id !== accountId) setPay((current) => ({ ...current, account_id: accountId }));
+  }, [
+    activePaymentAccounts,
+    defaultPaymentAccount?.id,
+    moneyAccts.error,
+    moneyAccts.isPending,
+    pay.account_id,
+    pay.paid,
+  ]);
   useEffect(() => {
     if (!head.branch_id || !selectedBranch) return;
     if (head.supplier_id && allowedSuppliers.some((supplier) => supplier.id === head.supplier_id))
@@ -334,13 +373,12 @@ function NewPurchase() {
                 onChange={(e) => setHead({ ...head, purchase_date: e.target.value })}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Supplier invoice #</Label>
+            <F label="Supplier invoice #" optional>
               <Input
                 value={head.supplier_invoice_no}
                 onChange={(e) => setHead({ ...head, supplier_invoice_no: e.target.value })}
               />
-            </div>
+            </F>
           </section>
 
           <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -484,45 +522,41 @@ function NewPurchase() {
               Landed cost & adjustments
             </h2>
             {COSTS.map(([k, label]) => (
-              <div key={k} className="space-y-1.5">
-                <Label className="text-xs">{label} (৳)</Label>
+              <F key={k} label={`${label} (৳)`} optional>
                 <Input
                   type="number"
                   step="0.01"
                   value={costs[k]}
                   onChange={(e) => setCosts({ ...costs, [k]: e.target.value })}
                 />
-              </div>
+              </F>
             ))}
-            <div className="space-y-1.5">
-              <Label className="text-xs">VAT / Tax (৳)</Label>
+            <F label="VAT / Tax (৳)" optional>
               <Input
                 type="number"
                 step="0.01"
                 value={costs["tax"]}
                 onChange={(e) => setCosts({ ...costs, tax: e.target.value })}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Discount (৳)</Label>
+            </F>
+            <F label="Discount (৳)" optional>
               <Input
                 type="number"
                 step="0.01"
                 value={costs["discount"]}
                 onChange={(e) => setCosts({ ...costs, discount: e.target.value })}
               />
-            </div>
+            </F>
             <p className="text-xs text-muted-foreground sm:col-span-3 lg:col-span-4">
               Extra costs, tax and discount are spread across items in proportion to their value.
             </p>
           </section>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
+          <F label="Notes" optional>
             <Textarea
               value={head.notes}
               onChange={(e) => setHead({ ...head, notes: e.target.value })}
             />
-          </div>
+          </F>
         </div>
 
         <aside className="h-fit space-y-4 rounded-lg border bg-card p-4 shadow-sm lg:sticky lg:top-24">
@@ -542,8 +576,7 @@ function NewPurchase() {
             </div>
           </dl>
           <div className="space-y-3 border-t pt-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Paid now (৳)</Label>
+            <F label="Paid now (৳)" optional>
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -561,27 +594,24 @@ function NewPurchase() {
                   Full
                 </Button>
               </div>
-            </div>
+            </F>
             {n(pay.paid) > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Pay from</Label>
                 <select
                   className={sel}
-                  value={pay.account_id || moneyAccts.data?.[0]?.id || ""}
+                  value={pay.account_id || defaultPaymentAccount?.id || ""}
                   onChange={(e) => setPay({ ...pay, account_id: e.target.value })}
                 >
-                  {moneyAccts.data
-                    ?.filter((a) => a.status === "active")
-                    .map((a) => (
-                      <option key={a.id!} value={a.id!}>
-                        {a.name} ({bdt(a.balance)})
-                      </option>
-                    ))}
+                  {activePaymentAccounts.map((a) => (
+                    <option key={a.id!} value={a.id!}>
+                      {a.name} ({bdt(a.balance)})
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Method</Label>
+            <F label="Method" optional>
               <select
                 className={sel}
                 value={pay.payment_method}
@@ -595,15 +625,14 @@ function NewPurchase() {
                   </option>
                 ))}
               </select>
-            </div>
+            </F>
             {pay.payment_method !== "cash" && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Transaction ID / Reference</Label>
+              <F label="Transaction ID / Reference" optional>
                 <Input
                   value={pay.txn_ref}
                   onChange={(e) => setPay({ ...pay, txn_ref: e.target.value })}
                 />
-              </div>
+              </F>
             )}
             <div className="num flex justify-between text-sm font-semibold">
               <span>{calc.due > 0 ? "Supplier due" : "Fully paid"}</span>

@@ -229,10 +229,26 @@ function ExpensesPage() {
               )}
               <Button
                 onClick={() => {
+                  const defaultBranch =
+                    branches.data?.find((branch) => branch.id === branchFilter) ??
+                    branches.data?.find((branch) => branch.kind !== "warehouse") ??
+                    branches.data?.[0];
+                  const branchAccounts = (accounts.data ?? []).filter(
+                    (account) =>
+                      account.status === "active" &&
+                      (account.branch_id === defaultBranch?.id || account.branch_id === null),
+                  );
+                  const defaultAccount =
+                    branchAccounts.find(
+                      (account) =>
+                        account.kind === "cash" && account.branch_id === defaultBranch?.id,
+                    ) ??
+                    branchAccounts.find((account) => account.branch_id === defaultBranch?.id) ??
+                    branchAccounts.find((account) => account.branch_id === null);
                   setF({
                     date: today(),
-                    branch: branchFilter || branches.data?.[0]?.id || "",
-                    account: accounts.data?.[0]?.id ?? "",
+                    branch: defaultBranch?.id ?? "",
+                    account: defaultAccount?.id ?? "",
                   });
                   setEditId(null);
                   setOpen(true);
@@ -408,14 +424,14 @@ function ExpensesPage() {
               )}
             </F>
             <F label="Branch *">{sel("branch", branches.data)}</F>
-            <F label="Date">
+            <F label="Date" optional initiallyEnabled={Boolean(f["date"])}>
               <Input
                 type="date"
                 value={f["date"] ?? ""}
                 onChange={(e) => setF({ ...f, date: e.target.value })}
               />
             </F>
-            <F label="Description">
+            <F label="Description" optional initiallyEnabled={Boolean(f["description"]?.trim())}>
               <Input
                 value={f["description"] ?? ""}
                 onChange={(e) => setF({ ...f, description: e.target.value })}
@@ -476,7 +492,7 @@ function ExpensesPage() {
               The money goes back to the account it was paid from and the accounts are reversed. The
               entry stays in history marked Cancelled.
             </p>
-            <F label="Reason">
+            <F label="Reason" optional initiallyEnabled={Boolean(reason)}>
               <Input value={reason} onChange={(e) => setReason(e.target.value)} />
             </F>
             <DialogFooter>

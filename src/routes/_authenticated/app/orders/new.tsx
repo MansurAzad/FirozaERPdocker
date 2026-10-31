@@ -286,7 +286,7 @@ function OrderForm() {
                 ))}
               </select>
             </F>
-            <F label="Customer (optional)">
+            <F label="Customer" optional>
               <select
                 className={selectCls}
                 value={customer}
@@ -304,7 +304,7 @@ function OrderForm() {
             <F label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </F>
-            <F label="Delivery date">
+            <F label="Delivery date" optional initiallyEnabled={Boolean(deliveryDate)}>
               <Input
                 type="date"
                 value={deliveryDate}
@@ -400,7 +400,7 @@ function OrderForm() {
                             }
                           />
                         </F>
-                        <F label="Discount">
+                        <F label="Discount" optional initiallyEnabled={Boolean(l.discount)}>
                           <Input
                             type="number"
                             step="0.01"
@@ -426,26 +426,26 @@ function OrderForm() {
           </section>
           <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm">
             <div className="grid gap-3 sm:grid-cols-2">
-              <F label="Delivery city">
+              <F label="Delivery city" optional initiallyEnabled={Boolean(deliveryCity)}>
                 <Input value={deliveryCity} onChange={(e) => setDeliveryCity(e.target.value)} />
               </F>
-              <F label="Courier">
+              <F label="Courier" optional initiallyEnabled={Boolean(courier)}>
                 <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
               </F>
             </div>
-            <F label="Delivery address">
+            <F label="Delivery address" optional initiallyEnabled={Boolean(deliveryAddr)}>
               <Input value={deliveryAddr} onChange={(e) => setDeliveryAddr(e.target.value)} />
             </F>
-            <F label="Tracking no">
+            <F label="Tracking no" optional initiallyEnabled={Boolean(tracking)}>
               <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
             </F>
-            <F label="Delivery note">
+            <F label="Delivery note" optional initiallyEnabled={Boolean(deliveryNote)}>
               <Textarea value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} />
             </F>
-            <F label="Notes">
+            <F label="Notes" optional initiallyEnabled={Boolean(notes)}>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
             </F>
-            <F label="Terms">
+            <F label="Terms" optional initiallyEnabled={Boolean(terms)}>
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} />
             </F>
           </section>

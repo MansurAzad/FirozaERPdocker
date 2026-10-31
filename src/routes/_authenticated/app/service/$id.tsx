@@ -303,7 +303,7 @@ function ServiceDetail() {
 
             {canCost && !closed && (
               <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm sm:grid-cols-3">
-                <F label="Labour / service charge">
+                <F label="Labour / service charge" optional initiallyEnabled={Number(labor) > 0}>
                   <Input
                     type="number"
                     step="0.01"
@@ -311,7 +311,7 @@ function ServiceDetail() {
                     onChange={(e) => setLabor(e.target.value)}
                   />
                 </F>
-                <F label="Advance received">
+                <F label="Advance received" optional initiallyEnabled={Number(advance) > 0}>
                   <Input
                     type="number"
                     step="0.01"

@@ -1164,7 +1164,7 @@ function FieldSales() {
                     onChange={(e) => setCollectionAmount(e.target.value)}
                   />
                 </F>
-                <F label={text("Note (optional)", "নোট (ঐচ্ছিক)")}>
+                <F label={text("Note (optional)", "নোট (ঐচ্ছিক)")} optional>
                   <Input
                     value={collectionNote}
                     onChange={(e) => setCollectionNote(e.target.value)}
@@ -1375,7 +1375,7 @@ function FieldSales() {
               </select>
             </F>
           </div>
-          <F label={text("Settlement note", "হিসাবের নোট")}>
+          <F label={text("Settlement note", "হিসাবের নোট")} optional>
             <Input value={settlementNote} onChange={(e) => setSettlementNote(e.target.value)} />
           </F>
           <Button disabled={submitSettlement.isPending} onClick={() => submitSettlement.mutate()}>

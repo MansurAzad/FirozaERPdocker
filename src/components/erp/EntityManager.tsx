@@ -9,8 +9,8 @@ import { friendlyError } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { F } from "@/components/erp/ui";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +75,7 @@ export type Field = {
   type?: "text" | "number" | "select" | "textarea" | "date";
   options?: { value: string; label: string }[];
   required?: boolean;
+  optional?: boolean;
   pattern?: RegExp;
   patternMsg?: string;
   placeholder?: string;
@@ -160,6 +161,7 @@ export function EntityManager({
   const [q, setQ] = useState(initialSearch);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Row>({});
+  const [formSession, setFormSession] = useState(0);
   const key = [table, business.id, branchFilterId, filterByBranchAssignment];
 
   const { data, isLoading, error } = useQuery({
@@ -268,6 +270,7 @@ export function EntityManager({
       init[f.key] =
         r?.[f.key] ?? defaults[f.key] ?? (f.type === "select" ? f.options?.[0]?.value : "");
     setForm(init);
+    setFormSession((session) => session + 1);
     setEditing(r ?? {});
   }
 
@@ -484,16 +487,15 @@ export function EntityManager({
           </DialogHeader>
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
             {fields.map((f) => (
-              <div
-                key={f.key}
-                className={
-                  f.full || f.type === "textarea" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"
+              <F
+                key={`${formSession}:${f.key}`}
+                label={`${f.label}${f.required ? " *" : ""}`}
+                className={f.full || f.type === "textarea" ? "sm:col-span-2" : ""}
+                optional={f.required ? false : (f.optional ?? true)}
+                initiallyEnabled={
+                  form[f.key] !== "" && form[f.key] !== null && form[f.key] !== undefined
                 }
               >
-                <Label>
-                  {f.label}
-                  {f.required && " *"}
-                </Label>
                 {f.type === "select" ? (
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -520,7 +522,7 @@ export function EntityManager({
                     onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                   />
                 )}
-              </div>
+              </F>
             ))}
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
