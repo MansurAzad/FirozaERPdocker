@@ -52,6 +52,8 @@ function FieldSales() {
   const text = (en: string, bn: string) => (lang === "bn" ? bn : en);
   const canIssue = ISSUE_ROLES.includes(role) && hasAccess(access, "transfers", "create");
   const canApprove = APPROVAL_ROLES.includes(role) && hasAccess(access, "sales", "approve");
+  const canReject =
+    ["owner", "manager", "branch_manager"].includes(role) && hasAccess(access, "sales", "approve");
 
   const [stockBranch, setStockBranch] = useState("");
   const [salesBranch, setSalesBranch] = useState("");
@@ -1439,13 +1441,15 @@ function FieldSales() {
                   >
                     {text("Approve & post", "অনুমোদন ও পোস্ট")}
                   </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={rejectSettlement.isPending}
-                    onClick={() => rejectSettlement.mutate(trip.id)}
-                  >
-                    {text("Reject", "বাতিল")}
-                  </Button>
+                  {canReject && (
+                    <Button
+                      variant="destructive"
+                      disabled={rejectSettlement.isPending}
+                      onClick={() => rejectSettlement.mutate(trip.id)}
+                    >
+                      {text("Reject", "বাতিল")}
+                    </Button>
+                  )}
                 </div>
               </div>
             );

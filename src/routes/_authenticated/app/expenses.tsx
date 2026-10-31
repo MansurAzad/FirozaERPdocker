@@ -217,12 +217,16 @@ function ExpensesPage() {
         actions={
           can && (
             <>
-              <Button variant="outline" onClick={() => setManageOpen(true)}>
-                Categories
-              </Button>
-              <Button variant="outline" onClick={() => setCatOpen(true)}>
-                New category
-              </Button>
+              {canEdit && (
+                <>
+                  <Button variant="outline" onClick={() => setManageOpen(true)}>
+                    Categories
+                  </Button>
+                  <Button variant="outline" onClick={() => setCatOpen(true)}>
+                    New category
+                  </Button>
+                </>
+              )}
               <Button
                 onClick={() => {
                   setF({
