@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Store, Warehouse, ArrowUpRight, Loader2 } from "lucide-react";
+import { Store, Warehouse, Bike, ArrowUpRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { entryDestination, entryRequiresLogin, type HomeEntry } from "@/lib/home-entry";
 import emblem from "@/assets/firoza-emblem.png";
@@ -15,12 +15,12 @@ export const Route = createFileRoute("/")({
       { title: `${loaderData?.name ?? "FIROZA ENTERPRISE"} — ব্র্যান্ডশপ ও হাউজ & স্টক` },
       {
         name: "description",
-        content: `${loaderData?.name ?? "FIROZA ENTERPRISE"} — ছয়টি ব্র্যান্ডশপ এবং হাউজ ও স্টকের হিসাব ব্যবস্থাপনা।`,
+        content: `${loaderData?.name ?? "FIROZA ENTERPRISE"} — ব্র্যান্ডশপ, হাউজ ও স্টক এবং এস আর বিক্রির হিসাব ব্যবস্থাপনা।`,
       },
       { property: "og:title", content: loaderData?.name ?? "FIROZA ENTERPRISE" },
       {
         property: "og:description",
-        content: "ব্র্যান্ডশপ ও হাউজ & স্টক — ব্যবসার হিসাব এক জায়গায়।",
+        content: "ব্র্যান্ডশপ, হাউজ & স্টক এবং এস আর বিক্রি — ব্যবসার হিসাব এক জায়গায়।",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -90,6 +90,18 @@ function Landing() {
             )}
           </span>
           <span lang="bn">হাউজ & স্টক</span>
+        </Button>
+        <Button
+          className="firoza-tile firoza-sr"
+          onClick={() => enter("sr")}
+          disabled={Boolean(busy)}
+          aria-label="এস আর"
+        >
+          <ArrowUpRight className="firoza-tile-arrow" aria-hidden="true" />
+          <span className="firoza-tile-icon">
+            {busy === "sr" ? <Loader2 className="animate-spin" /> : <Bike strokeWidth={1.4} />}
+          </span>
+          <span lang="bn">এস আর</span>
         </Button>
       </div>
     </main>

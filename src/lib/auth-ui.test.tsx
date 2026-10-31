@@ -14,7 +14,7 @@ const {
   toastSuccessMock,
   unsubscribeMock,
 } = vi.hoisted(() => ({
-  entryMock: { value: undefined as "brandshops" | "house" | undefined },
+  entryMock: { value: undefined as "brandshops" | "house" | "sr" | undefined },
   getSessionMock: vi.fn(),
   navigateMock: vi.fn(),
   onAuthStateChangeMock: vi.fn(),
@@ -127,6 +127,22 @@ describe("sign-in flow", () => {
 
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({ to: "/app/brand-shops", replace: true });
+    });
+  });
+
+  it("preserves the SR destination after sign-in", async () => {
+    entryMock.value = "sr";
+    const signedInSession = { expires_at: Math.floor(Date.now() / 1000) + 3600 };
+    signInMock.mockImplementation(async () => {
+      authStateCallback?.("SIGNED_IN", signedInSession);
+      return { data: { session: signedInSession }, error: null };
+    });
+    render(<AuthPage entry={entryMock.value} />);
+
+    await fillAndSubmit();
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith({ to: "/app/field-sales", replace: true });
     });
   });
 

@@ -11,6 +11,9 @@ describe("Firoza entry rules", () => {
   it("opens House & Stock inside the app", () => {
     expect(entryDestination("house")).toBe("/app");
   });
+  it("opens Field Sales for SR users", () => {
+    expect(entryDestination("sr")).toBe("/app/field-sales");
+  });
   it("contains exactly the six requested shops", () => {
     expect([...BRAND_SHOPS]).toEqual(["ViVO", "Xiaomi", "Techno", "iTel", "Infinix", "Honor"]);
   });

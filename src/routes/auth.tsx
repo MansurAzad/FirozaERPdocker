@@ -5,9 +5,11 @@ import { getSiteBranding } from "@/lib/branding.functions";
 export const Route = createFileRoute("/auth")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { entry?: "brandshops" | "house" | undefined } => ({
+  ): { entry?: "brandshops" | "house" | "sr" | undefined } => ({
     entry:
-      search["entry"] === "brandshops" || search["entry"] === "house" ? search["entry"] : undefined,
+      search["entry"] === "brandshops" || search["entry"] === "house" || search["entry"] === "sr"
+        ? search["entry"]
+        : undefined,
   }),
   loader: () => getSiteBranding(),
   head: ({ loaderData }) => ({

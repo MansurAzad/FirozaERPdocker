@@ -11,7 +11,7 @@ import { useBranding } from "@/lib/branding-context";
 import emblem from "@/assets/firoza-emblem.png";
 
 type AuthPageProps = {
-  entry?: "brandshops" | "house" | undefined;
+  entry?: "brandshops" | "house" | "sr" | undefined;
 };
 
 export function AuthPage({ entry }: AuthPageProps) {

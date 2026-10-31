@@ -13,7 +13,14 @@ export const Route = createFileRoute("/_authenticated")({
     if (!user)
       throw redirect({
         to: "/auth",
-        search: { entry: location.pathname === "/app/brand-shops" ? "brandshops" : undefined },
+        search: {
+          entry:
+            location.pathname === "/app/brand-shops"
+              ? "brandshops"
+              : location.pathname === "/app/field-sales"
+                ? "sr"
+                : undefined,
+        },
       });
     await restoreOfflineQueryCache(context.queryClient, user.id);
     return { user };
