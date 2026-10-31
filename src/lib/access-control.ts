@@ -107,6 +107,7 @@ const ROUTES: readonly [string, AccessModule][] = [
   ["/app/service", "service"],
   ["/app/warranty", "warranty"],
   ["/app/ledger", "ledger"],
+  ["/app/party-reports", "ledger"],
   ["/app/orders", "orders"],
   ["/app/courier", "courier"],
   ["/app/dealers", "dealers"],

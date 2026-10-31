@@ -15,6 +15,7 @@ export const dict = {
   dueCollection: { en: "Due Collection", bn: "বাকি আদায়" },
   fieldSales: { en: "Field Sales", bn: "ফিল্ড সেলস" },
   ledger: { en: "Party Ledger", bn: "লেজার" },
+  partyReports: { en: "Party Transactions & Dues", bn: "পার্টি লেনদেন ও বাকি রিপোর্ট" },
   transfers: { en: "Stock Transfer", bn: "স্টক ট্রান্সফার" },
   warranty: { en: "Warranty Claims", bn: "ওয়ারেন্টি" },
   commission: { en: "Commission", bn: "কমিশন" },

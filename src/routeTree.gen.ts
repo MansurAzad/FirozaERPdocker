@@ -49,6 +49,7 @@ import { Route as AuthenticatedAppImeiRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppLabelsRouteImport } from './routes/_authenticated/app/labels'
 import { Route as AuthenticatedAppLedgerRouteImport } from './routes/_authenticated/app/ledger'
 import { Route as AuthenticatedAppMoneyRouteImport } from './routes/_authenticated/app/money'
+import { Route as AuthenticatedAppPartyReportsRouteImport } from './routes/_authenticated/app/party-reports'
 import { Route as AuthenticatedAppProductsRouteImport } from './routes/_authenticated/app/products'
 import { Route as AuthenticatedAppReorderRouteImport } from './routes/_authenticated/app/reorder'
 import { Route as AuthenticatedAppReportsRouteImport } from './routes/_authenticated/app/reports'
@@ -314,6 +315,12 @@ const AuthenticatedAppMoneyRoute = AuthenticatedAppMoneyRouteImport.update({
   path: '/money',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppPartyReportsRoute =
+  AuthenticatedAppPartyReportsRouteImport.update({
+    id: '/party-reports',
+    path: '/party-reports',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppProductsRoute =
   AuthenticatedAppProductsRouteImport.update({
     id: '/products',
@@ -610,6 +617,7 @@ export interface FileRoutesByFullPath {
   '/app/labels': typeof AuthenticatedAppLabelsRoute
   '/app/ledger': typeof AuthenticatedAppLedgerRoute
   '/app/money': typeof AuthenticatedAppMoneyRoute
+  '/app/party-reports': typeof AuthenticatedAppPartyReportsRoute
   '/app/products': typeof AuthenticatedAppProductsRoute
   '/app/reorder': typeof AuthenticatedAppReorderRoute
   '/app/reports': typeof AuthenticatedAppReportsRoute
@@ -694,6 +702,7 @@ export interface FileRoutesByTo {
   '/app/labels': typeof AuthenticatedAppLabelsRoute
   '/app/ledger': typeof AuthenticatedAppLedgerRoute
   '/app/money': typeof AuthenticatedAppMoneyRoute
+  '/app/party-reports': typeof AuthenticatedAppPartyReportsRoute
   '/app/products': typeof AuthenticatedAppProductsRoute
   '/app/reorder': typeof AuthenticatedAppReorderRoute
   '/app/reports': typeof AuthenticatedAppReportsRoute
@@ -781,6 +790,7 @@ export interface FileRoutesById {
   '/_authenticated/app/labels': typeof AuthenticatedAppLabelsRoute
   '/_authenticated/app/ledger': typeof AuthenticatedAppLedgerRoute
   '/_authenticated/app/money': typeof AuthenticatedAppMoneyRoute
+  '/_authenticated/app/party-reports': typeof AuthenticatedAppPartyReportsRoute
   '/_authenticated/app/products': typeof AuthenticatedAppProductsRoute
   '/_authenticated/app/reorder': typeof AuthenticatedAppReorderRoute
   '/_authenticated/app/reports': typeof AuthenticatedAppReportsRoute
@@ -868,6 +878,7 @@ export interface FileRouteTypes {
     | '/app/labels'
     | '/app/ledger'
     | '/app/money'
+    | '/app/party-reports'
     | '/app/products'
     | '/app/reorder'
     | '/app/reports'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/app/labels'
     | '/app/ledger'
     | '/app/money'
+    | '/app/party-reports'
     | '/app/products'
     | '/app/reorder'
     | '/app/reports'
@@ -1038,6 +1050,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/labels'
     | '/_authenticated/app/ledger'
     | '/_authenticated/app/money'
+    | '/_authenticated/app/party-reports'
     | '/_authenticated/app/products'
     | '/_authenticated/app/reorder'
     | '/_authenticated/app/reports'
@@ -1374,6 +1387,13 @@ declare module '@tanstack/react-router' {
       path: '/money'
       fullPath: '/app/money'
       preLoaderRoute: typeof AuthenticatedAppMoneyRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/party-reports': {
+      id: '/_authenticated/app/party-reports'
+      path: '/party-reports'
+      fullPath: '/app/party-reports'
+      preLoaderRoute: typeof AuthenticatedAppPartyReportsRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/_authenticated/app/products': {
@@ -1720,6 +1740,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLabelsRoute: typeof AuthenticatedAppLabelsRoute
   AuthenticatedAppLedgerRoute: typeof AuthenticatedAppLedgerRoute
   AuthenticatedAppMoneyRoute: typeof AuthenticatedAppMoneyRoute
+  AuthenticatedAppPartyReportsRoute: typeof AuthenticatedAppPartyReportsRoute
   AuthenticatedAppProductsRoute: typeof AuthenticatedAppProductsRoute
   AuthenticatedAppReorderRoute: typeof AuthenticatedAppReorderRoute
   AuthenticatedAppReportsRoute: typeof AuthenticatedAppReportsRoute
@@ -1801,6 +1822,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppLabelsRoute: AuthenticatedAppLabelsRoute,
   AuthenticatedAppLedgerRoute: AuthenticatedAppLedgerRoute,
   AuthenticatedAppMoneyRoute: AuthenticatedAppMoneyRoute,
+  AuthenticatedAppPartyReportsRoute: AuthenticatedAppPartyReportsRoute,
   AuthenticatedAppProductsRoute: AuthenticatedAppProductsRoute,
   AuthenticatedAppReorderRoute: AuthenticatedAppReorderRoute,
   AuthenticatedAppReportsRoute: AuthenticatedAppReportsRoute,

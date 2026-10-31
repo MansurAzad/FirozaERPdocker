@@ -153,6 +153,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
       { to: "/app/customer-portal", icon: Link2, k: "customerPortal" },
       { to: "/app/suppliers", icon: Handshake, k: "suppliers" },
       { to: "/app/ledger", icon: BookOpen, k: "ledger" },
+      { to: "/app/party-reports", icon: BarChart3, k: "partyReports" },
     ],
   },
   {
