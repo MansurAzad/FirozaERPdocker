@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, QrCode, X, ZoomIn } from "lucide-react";
+import { Camera, QrCode, X, ZoomIn, Zap } from "lucide-react";
 import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { Button } from "@/components/ui/button";
@@ -13,18 +13,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-
-/** Split pasted/scanned text into unique codes (lines, commas, spaces). */
-export function splitCodes(text: string) {
-  return [
-    ...new Set(
-      text
-        .split(/[\s,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  ];
-}
+import { splitCodes } from "@/lib/barcode";
 
 type Props = {
   onCodes: (codes: string[]) => void;
@@ -36,10 +25,16 @@ type Props = {
 
 type ZoomCapabilities = MediaTrackCapabilities & {
   zoom?: { min: number; max: number; step?: number };
+  torch?: boolean;
+  focusMode?: string[];
 };
 
 type ZoomSettings = MediaTrackSettings & { zoom?: number };
-type ZoomConstraintSet = MediaTrackConstraintSet & { zoom?: ConstrainDouble };
+type AdvancedCameraConstraint = MediaTrackConstraintSet & {
+  focusMode?: string;
+  torch?: boolean;
+  zoom?: ConstrainDouble;
+};
 
 /** Camera barcode / QR scanner. Multi mode keeps scanning and collects a bulk list. */
 export function ScanButton({
@@ -54,6 +49,10 @@ export function ScanButton({
   const [paste, setPaste] = useState("");
   const [err, setErr] = useState("");
   const [starting, setStarting] = useState(false);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [cameraId, setCameraId] = useState("");
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState<{
     min: number;
     max: number;
@@ -62,7 +61,7 @@ export function ScanButton({
   } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanner = useRef<IScannerControls | null>(null);
-  const zoomTrack = useRef<MediaStreamTrack | null>(null);
+  const videoTrack = useRef<MediaStreamTrack | null>(null);
   const last = useRef("");
   const cb = useRef(onCodes);
   cb.current = onCodes;
@@ -73,7 +72,9 @@ export function ScanButton({
     setErr("");
     setStarting(true);
     setZoom(null);
-    zoomTrack.current = null;
+    setTorchSupported(false);
+    setTorchOn(false);
+    videoTrack.current = null;
     last.current = "";
     (async () => {
       try {
@@ -96,9 +97,14 @@ export function ScanButton({
               BarcodeFormat.ITF,
               BarcodeFormat.UPC_A,
               BarcodeFormat.UPC_E,
+              BarcodeFormat.UPC_EAN_EXTENSION,
               BarcodeFormat.QR_CODE,
               BarcodeFormat.DATA_MATRIX,
               BarcodeFormat.PDF_417,
+              BarcodeFormat.AZTEC,
+              BarcodeFormat.CODABAR,
+              BarcodeFormat.RSS_14,
+              BarcodeFormat.RSS_EXPANDED,
             ],
           ],
           [DecodeHintType.TRY_HARDER, true],
@@ -111,7 +117,9 @@ export function ScanButton({
           {
             audio: false,
             video: {
-              facingMode: { ideal: "environment" },
+              ...(cameraId
+                ? { deviceId: { exact: cameraId } }
+                : { facingMode: { ideal: "environment" } }),
               width: { ideal: 1920 },
               height: { ideal: 1080 },
             },
@@ -142,6 +150,32 @@ export function ScanButton({
           const stream = video.srcObject;
           const track = stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
           const capabilities = track?.getCapabilities() as ZoomCapabilities | undefined;
+          videoTrack.current = track ?? null;
+          setTorchSupported(capabilities?.torch === true);
+          if (track && capabilities?.focusMode?.includes("continuous")) {
+            const focus: AdvancedCameraConstraint = { focusMode: "continuous" };
+            void track.applyConstraints({ advanced: [focus] }).catch((error: unknown) => {
+              if (alive)
+                setErr(
+                  error instanceof Error
+                    ? `Could not enable continuous autofocus: ${error.message}`
+                    : "Could not enable continuous autofocus.",
+                );
+            });
+          }
+          void navigator.mediaDevices
+            .enumerateDevices()
+            .then((devices) => {
+              if (alive) setCameras(devices.filter((device) => device.kind === "videoinput"));
+            })
+            .catch((error: unknown) => {
+              if (alive)
+                setErr(
+                  error instanceof Error
+                    ? `Could not list available cameras: ${error.message}`
+                    : "Could not list available cameras.",
+                );
+            });
           const range = capabilities?.zoom;
           if (
             track &&
@@ -152,7 +186,6 @@ export function ScanButton({
           ) {
             const settings = track.getSettings() as ZoomSettings;
             const step = range.step && range.step > 0 ? range.step : (range.max - range.min) / 40;
-            zoomTrack.current = track;
             setZoom({
               min: range.min,
               max: range.max,
@@ -181,15 +214,15 @@ export function ScanButton({
       alive = false;
       const activeScanner = scanner.current;
       scanner.current = null;
-      zoomTrack.current = null;
+      videoTrack.current = null;
       activeScanner?.stop();
     };
-  }, [open, multi, vibrateSuccess]);
+  }, [open, multi, vibrateSuccess, cameraId]);
 
   function applyZoom(value: number) {
-    const track = zoomTrack.current;
+    const track = videoTrack.current;
     if (!track) return;
-    const zoomConstraint: ZoomConstraintSet = { zoom: { ideal: value } };
+    const zoomConstraint: AdvancedCameraConstraint = { zoom: { ideal: value } };
     void track.applyConstraints({ advanced: [zoomConstraint] }).catch((error: unknown) => {
       setErr(
         error instanceof Error
@@ -197,6 +230,24 @@ export function ScanButton({
           : "Could not adjust camera zoom.",
       );
     });
+  }
+
+  async function toggleTorch() {
+    const track = videoTrack.current;
+    if (!track) return;
+    const next = !torchOn;
+    const torchConstraint: AdvancedCameraConstraint = { torch: next };
+    try {
+      await track.applyConstraints({ advanced: [torchConstraint] });
+      setTorchOn(next);
+      setErr("");
+    } catch (error) {
+      setErr(
+        error instanceof Error
+          ? `Could not change flashlight: ${error.message}`
+          : "Could not change flashlight.",
+      );
+    }
   }
 
   function finish() {
@@ -249,6 +300,38 @@ export function ScanButton({
               <div className="h-20 rounded-lg border-2 border-dashed border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" />
             </div>
           </div>
+          {(cameras.length > 1 || torchSupported) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {cameras.length > 1 && (
+                <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+                  Camera
+                  <select
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-foreground"
+                    value={cameraId}
+                    onChange={(event) => setCameraId(event.target.value)}
+                  >
+                    <option value="">Default rear camera</option>
+                    {cameras.map((camera, index) => (
+                      <option key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `Camera ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {torchSupported && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={torchOn ? "default" : "outline"}
+                  onClick={() => void toggleTorch()}
+                >
+                  <Zap />
+                  {torchOn ? "Turn flashlight off" : "Turn flashlight on"}
+                </Button>
+              )}
+            </div>
+          )}
           {starting && <p className="text-xs text-muted-foreground">Starting camera…</p>}
           {!err && (
             <p className="text-xs text-muted-foreground">

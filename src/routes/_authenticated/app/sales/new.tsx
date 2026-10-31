@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ScanButton } from "@/components/erp/ScanButton";
 import { defaultSaleCashAccount, salePaymentAccounts } from "@/lib/sale-payment-accounts";
 import { getSaleExceptionTypes, type SaleExceptionType } from "@/lib/sale-exceptions";
+import { imeiCandidatesFromBarcode } from "@/lib/barcode";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -304,8 +305,10 @@ function NewSale() {
     let ok = 0;
     const miss: string[] = [];
     for (const raw of codes) {
-      const code = raw.replace(/\D/g, "");
-      const hit = imeiPool.data?.find((i) => i.imei1 === code || i.imei2 === code);
+      const candidates = imeiCandidatesFromBarcode(raw);
+      const hit = imeiPool.data?.find(
+        (i) => candidates.includes(i.imei1) || (i.imei2 && candidates.includes(i.imei2)),
+      );
       if (hit) {
         addVariant(hit.variant_id, { id: hit.id, imei1: hit.imei1 });
         ok++;
@@ -319,8 +322,10 @@ function NewSale() {
   }
   function onScan(e: React.FormEvent) {
     e.preventDefault();
-    const code = scan.replace(/\D/g, "");
-    const hit = imeiPool.data?.find((i) => i.imei1 === code || i.imei2 === code);
+    const candidates = imeiCandidatesFromBarcode(scan);
+    const hit = imeiPool.data?.find(
+      (i) => candidates.includes(i.imei1) || (i.imei2 && candidates.includes(i.imei2)),
+    );
     if (!hit) return void toast.error("IMEI not found in stock at this branch.");
     addVariant(hit.variant_id, { id: hit.id, imei1: hit.imei1 });
     setScan("");

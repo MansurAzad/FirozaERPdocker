@@ -10,6 +10,41 @@ export type BarcodeFormat = "CODE128" | "CODE39" | "EAN13" | "UPC";
 
 export const BARCODE_FORMATS: BarcodeFormat[] = ["CODE128", "CODE39", "EAN13", "UPC"];
 
+export function splitCodes(text: string) {
+  return [
+    ...new Set(
+      text
+        .split(/[\s,;]+/)
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export function imeiCandidatesFromBarcode(value: string): string[] {
+  const candidates = new Set<string>();
+  const text = value.split(String.fromCharCode(29)).join(" ");
+  const matches = text.matchAll(/(?:^|[^\d])(\d{15})(?!\d)/g);
+
+  for (const match of matches) {
+    candidates.add(match[1]!);
+  }
+
+  for (const run of text.match(/\d+/g) ?? []) {
+    if (run.length === 15) candidates.add(run);
+    else if (run.length > 15) {
+      for (let index = 0; index <= run.length - 15; index++) {
+        candidates.add(run.slice(index, index + 15));
+      }
+    }
+  }
+
+  const compact = text.replace(/\D/g, "");
+  if (compact.length === 15) candidates.add(compact);
+
+  return [...candidates];
+}
+
 export async function barcodeSvg(
   value: string,
   format: BarcodeFormat = "CODE128",

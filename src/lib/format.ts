@@ -1,3 +1,5 @@
+import { getErrorMessage } from "./error-message";
+
 export function bdt(v: number | string | null | undefined) {
   const n = Number(v ?? 0);
   return "৳ " + n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -17,7 +19,7 @@ export const ROLE_LABELS: Record<string, string> = {
 };
 
 export function friendlyError(e: unknown): string {
-  const msg = (e as { message?: string })?.message ?? String(e);
+  const msg = getErrorMessage(e);
   if (msg.includes("duplicate key")) {
     if (msg.includes("mobile")) return "This mobile number is already registered.";
     if (msg.includes("sku")) return "This SKU already exists.";

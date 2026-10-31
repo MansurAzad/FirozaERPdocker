@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScanButton } from "@/components/erp/ScanButton";
+import { imeiCandidatesFromBarcode } from "@/lib/barcode";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -436,7 +437,13 @@ function NewPurchase() {
                               size="sm"
                               label="Scan"
                               onCodes={(c) => {
-                                const text = [l.imeiText.trim(), ...c].filter(Boolean).join("\n");
+                                const scanned = c.flatMap((code) => {
+                                  const candidates = imeiCandidatesFromBarcode(code);
+                                  return candidates.length === 1 ? candidates : [code.trim()];
+                                });
+                                const text = [l.imeiText.trim(), ...scanned]
+                                  .filter(Boolean)
+                                  .join("\n");
                                 setLine(l.key, {
                                   imeiText: text,
                                   qty: String(Math.max(n(l.qty), parseImeis(text).length)),

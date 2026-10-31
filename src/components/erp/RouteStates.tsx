@@ -1,20 +1,7 @@
 import { useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-  ) {
-    return error.message;
-  }
-  return "An unexpected error occurred.";
-}
+import { getErrorMessage } from "@/lib/error-message";
 
 /** Shown while a page's data loads, so no page is ever blank. */
 export function PagePending() {
@@ -34,7 +21,7 @@ export function PageError({ error, reset }: ErrorComponentProps) {
   return (
     <div className="mx-auto my-10 max-w-md rounded-lg border bg-card p-6 text-center">
       <p className="font-semibold">এই পেইজটি লোড হয়নি · This page could not load</p>
-      <p className="mt-2 break-words text-xs text-muted-foreground">{errorMessage(error)}</p>
+      <p className="mt-2 break-words text-xs text-muted-foreground">{getErrorMessage(error)}</p>
       <Button
         className="mt-4"
         size="sm"

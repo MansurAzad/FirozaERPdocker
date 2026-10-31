@@ -19,7 +19,7 @@ describe("field-sales trip reconciliation", () => {
     expect(fieldSalesReturnCountMatches(1, 0.5, 0.5)).toBe(false);
   });
 
-  it("matches an IMEI only when the exact code belongs to the selected variant", () => {
+  it("matches an IMEI inside a barcode only for the selected variant", () => {
     const imei = {
       imei1: "123456789012345",
       imei2: "543210987654321",
@@ -27,6 +27,9 @@ describe("field-sales trip reconciliation", () => {
     };
     expect(matchesFieldSalesImei(imei, " 123456789012345 ", "phone-a")).toBe(true);
     expect(matchesFieldSalesImei(imei, "543210987654321", "phone-a")).toBe(true);
+    expect(matchesFieldSalesImei(imei, "01 01234567890128 21 123456789012345", "phone-a")).toBe(
+      true,
+    );
     expect(matchesFieldSalesImei(imei, "123456789012345", "phone-b")).toBe(false);
     expect(matchesFieldSalesImei(imei, "", "phone-a")).toBe(false);
   });
