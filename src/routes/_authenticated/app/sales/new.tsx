@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ScanButton } from "@/components/erp/ScanButton";
 import { defaultSaleCashAccount, salePaymentAccounts } from "@/lib/sale-payment-accounts";
 import { getSaleExceptionTypes, type SaleExceptionType } from "@/lib/sale-exceptions";
-import { imeiCandidatesFromBarcode } from "@/lib/barcode";
+import { validImeiCandidatesFromBarcode } from "@/lib/barcode";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -91,6 +91,9 @@ function NewSale() {
     { key: 0, account_id: "", method: "cash", amount: "", txn_ref: "" },
   ]);
   const [scan, setScan] = useState(Route.useSearch().imei ?? "");
+  const [scanFeedback, setScanFeedback] = useState<{ valid: boolean; message: string } | null>(
+    null,
+  );
   const [search, setSearch] = useState("");
   const [creditMsg, setCreditMsg] = useState<string | null>(null);
   const [requestDialog, setRequestDialog] = useState(false);
@@ -304,17 +307,42 @@ function NewSale() {
   function addCodes(codes: string[]) {
     let ok = 0;
     const miss: string[] = [];
+    const invalid: string[] = [];
     for (const raw of codes) {
-      const candidates = imeiCandidatesFromBarcode(raw);
+      const candidates = validImeiCandidatesFromBarcode(raw);
+      if (!candidates.length) {
+        setScan(raw);
+        setScanFeedback({
+          valid: false,
+          message: "Invalid IMEI. Use 15 digits with a valid check digit.",
+        });
+        navigator.vibrate?.([120, 50, 120]);
+        invalid.push(raw);
+        continue;
+      }
       const hit = imeiPool.data?.find(
         (i) => candidates.includes(i.imei1) || (i.imei2 && candidates.includes(i.imei2)),
       );
       if (hit) {
         addVariant(hit.variant_id, { id: hit.id, imei1: hit.imei1 });
+        setScan(hit.imei1);
+        setScanFeedback({ valid: true, message: "IMEI verified and added." });
         ok++;
-      } else miss.push(raw);
+      } else {
+        setScan(candidates[0]!);
+        setScanFeedback({
+          valid: false,
+          message: "Valid IMEI, but it is not in stock at this branch.",
+        });
+        navigator.vibrate?.([120, 50, 120]);
+        miss.push(raw);
+      }
     }
     if (ok) toast.success(`${ok} device(s) added`);
+    if (invalid.length)
+      toast.error(
+        `Invalid IMEI: ${invalid.slice(0, 5).join(", ")}${invalid.length > 5 ? "…" : ""}`,
+      );
     if (miss.length)
       toast.error(
         `Not in stock at this branch: ${miss.slice(0, 5).join(", ")}${miss.length > 5 ? "…" : ""}`,
@@ -322,12 +350,28 @@ function NewSale() {
   }
   function onScan(e: React.FormEvent) {
     e.preventDefault();
-    const candidates = imeiCandidatesFromBarcode(scan);
+    const candidates = validImeiCandidatesFromBarcode(scan);
+    if (!candidates.length) {
+      setScanFeedback({
+        valid: false,
+        message: "Invalid IMEI. Use 15 digits with a valid check digit.",
+      });
+      navigator.vibrate?.([120, 50, 120]);
+      return void toast.error("Invalid IMEI. Use 15 digits with a valid check digit.");
+    }
     const hit = imeiPool.data?.find(
       (i) => candidates.includes(i.imei1) || (i.imei2 && candidates.includes(i.imei2)),
     );
-    if (!hit) return void toast.error("IMEI not found in stock at this branch.");
+    if (!hit) {
+      setScanFeedback({
+        valid: false,
+        message: "Valid IMEI, but it is not in stock at this branch.",
+      });
+      navigator.vibrate?.([120, 50, 120]);
+      return void toast.error("IMEI not found in stock at this branch.");
+    }
     addVariant(hit.variant_id, { id: hit.id, imei1: hit.imei1 });
+    setScanFeedback({ valid: true, message: "IMEI verified and added." });
     setScan("");
   }
 
@@ -589,14 +633,41 @@ function NewSale() {
                   autoFocus
                   placeholder="Scan / type IMEI"
                   value={scan}
-                  onChange={(e) => setScan(e.target.value)}
-                  className="num font-mono"
+                  onChange={(e) => {
+                    setScan(e.target.value);
+                    setScanFeedback(null);
+                  }}
+                  aria-invalid={scanFeedback ? !scanFeedback.valid : undefined}
+                  className={`num font-mono ${
+                    scanFeedback
+                      ? scanFeedback.valid
+                        ? "border-green-600 focus-visible:border-green-600 focus-visible:ring-green-600/20"
+                        : "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+                      : ""
+                  }`}
                 />
                 <Button variant="secondary" aria-label="Add by IMEI">
                   <ScanLine className="h-4 w-4" />
                 </Button>
-                <ScanButton onCodes={addCodes} />
+                <ScanButton
+                  validateImei
+                  onValidation={({ valid, value, message }) => {
+                    setScan(value);
+                    setScanFeedback({ valid, message });
+                  }}
+                  onCodes={addCodes}
+                />
               </form>
+              {scanFeedback && (
+                <p
+                  role="status"
+                  className={`text-xs ${
+                    scanFeedback.valid ? "text-green-700 dark:text-green-400" : "text-destructive"
+                  }`}
+                >
+                  {scanFeedback.message}
+                </p>
+              )}
               <Input
                 placeholder="Search product in stock…"
                 value={search}

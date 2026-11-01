@@ -1,4 +1,4 @@
-import { imeiCandidatesFromBarcode } from "./barcode";
+import { validImeiCandidatesFromBarcode } from "./barcode";
 
 export function fieldSalesRemainingQty(
   issued: number,
@@ -14,7 +14,7 @@ export function matchesFieldSalesImei(
   code: string,
   variantId: string,
 ) {
-  const scanned = imeiCandidatesFromBarcode(code);
+  const scanned = validImeiCandidatesFromBarcode(code);
   return (
     imei.variant_id === variantId &&
     scanned.some((candidate) => imei.imei1 === candidate || imei.imei2 === candidate)

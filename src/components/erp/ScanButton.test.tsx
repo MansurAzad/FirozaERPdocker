@@ -6,6 +6,11 @@ const scannerMock = vi.hoisted(() => ({
   decode: vi.fn(),
   onResult: null as null | ((result: { getText: () => string } | undefined) => void),
 }));
+const audioMock = vi.hoisted(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  resume: vi.fn(),
+}));
 
 vi.mock("@zxing/browser", () => ({
   BrowserMultiFormatReader: class {
@@ -43,6 +48,36 @@ beforeEach(() => {
     },
     vibrate: vi.fn(),
   });
+  audioMock.start.mockReset();
+  audioMock.stop.mockReset();
+  audioMock.resume.mockReset().mockResolvedValue(undefined);
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      state = "running";
+      currentTime = 0;
+      destination = {};
+      resume = audioMock.resume;
+      createOscillator() {
+        return {
+          type: "",
+          frequency: { value: 0 },
+          connect: vi.fn(),
+          start: audioMock.start,
+          stop: audioMock.stop,
+        };
+      }
+      createGain() {
+        return {
+          gain: {
+            setValueAtTime: vi.fn(),
+            exponentialRampToValueAtTime: vi.fn(),
+          },
+          connect: vi.fn(),
+        };
+      }
+    },
+  );
 });
 
 afterEach(() => {
@@ -86,5 +121,37 @@ describe("ScanButton camera scanning", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use code" }));
 
     expect(onCodes).toHaveBeenCalledWith(["manual-imei"]);
+  });
+
+  it("accepts valid IMEIs, beeps, and keeps the scan feedback green", async () => {
+    scannerMock.decode.mockResolvedValue(controls);
+    const onCodes = vi.fn();
+    render(<ScanButton multi={false} validateImei onCodes={onCodes} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan barcode or QR" }));
+    await waitFor(() => expect(scannerMock.onResult).not.toBeNull());
+    scannerMock.onResult?.({ getText: () => "IMEI: 490154203237518" });
+
+    expect(onCodes).toHaveBeenCalledWith(["490154203237518"]);
+    expect(await screen.findByRole("status")).toHaveTextContent("IMEI is valid.");
+    await waitFor(() => expect(audioMock.start).toHaveBeenCalledOnce());
+    expect(audioMock.stop).toHaveBeenCalledOnce();
+    expect(navigator.vibrate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid IMEI, vibrates, and shows red validation feedback", async () => {
+    scannerMock.decode.mockResolvedValue(controls);
+    const onCodes = vi.fn();
+    render(<ScanButton multi={false} validateImei onCodes={onCodes} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan barcode or QR" }));
+    await waitFor(() => expect(scannerMock.onResult).not.toBeNull());
+    scannerMock.onResult?.({ getText: () => "490154203237519" });
+
+    expect(onCodes).not.toHaveBeenCalled();
+    expect(await screen.findByRole("status")).toHaveTextContent(/Invalid IMEI/);
+    expect(screen.getByRole("status").className).toContain("text-destructive");
+    expect(navigator.vibrate).toHaveBeenCalledWith([120, 50, 120]);
+    expect(audioMock.start).not.toHaveBeenCalled();
   });
 });

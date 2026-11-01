@@ -887,12 +887,32 @@ function FieldSales() {
                   label={text("Scan IMEI", "IMEI স্ক্যান")}
                   multi={false}
                   vibrateSuccess={false}
+                  validateImei
+                  onValidation={({ valid, value }) => {
+                    setIssueCode(value);
+                    setIssueFeedback({
+                      ok: valid,
+                      message: valid
+                        ? text("IMEI is valid.", "IMEI সঠিক।")
+                        : text("Invalid 15-digit IMEI.", "১৫ সংখ্যার সঠিক IMEI নয়।"),
+                    });
+                  }}
                   onCodes={applyIssueCodes}
                 />
                 <Input
-                  className="max-w-xs"
+                  className={`max-w-xs ${
+                    issueFeedback
+                      ? issueFeedback.ok
+                        ? "border-green-600 focus-visible:border-green-600 focus-visible:ring-green-600/20"
+                        : "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+                      : ""
+                  }`}
                   value={issueCode}
-                  onChange={(e) => setIssueCode(e.target.value)}
+                  aria-invalid={issueFeedback ? !issueFeedback.ok : undefined}
+                  onChange={(e) => {
+                    setIssueCode(e.target.value);
+                    setIssueFeedback(null);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -1088,12 +1108,32 @@ function FieldSales() {
                             label={text("Scan sale IMEI", "বিক্রির IMEI স্ক্যান")}
                             multi={false}
                             vibrateSuccess={false}
+                            validateImei
+                            onValidation={({ valid, value }) => {
+                              setSaleCode(value);
+                              setSaleFeedback({
+                                ok: valid,
+                                message: valid
+                                  ? text("IMEI is valid.", "IMEI সঠিক।")
+                                  : text("Invalid 15-digit IMEI.", "১৫ সংখ্যার সঠিক IMEI নয়।"),
+                              });
+                            }}
                             onCodes={(codes) => codes.forEach(applySaleCode)}
                           />
                           <Input
-                            className="max-w-xs"
+                            className={`max-w-xs ${
+                              saleFeedback
+                                ? saleFeedback.ok
+                                  ? "border-green-600 focus-visible:border-green-600 focus-visible:ring-green-600/20"
+                                  : "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+                                : ""
+                            }`}
                             value={saleCode}
-                            onChange={(e) => setSaleCode(e.target.value)}
+                            aria-invalid={saleFeedback ? !saleFeedback.ok : undefined}
+                            onChange={(e) => {
+                              setSaleCode(e.target.value);
+                              setSaleFeedback(null);
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -1323,12 +1363,32 @@ function FieldSales() {
                   label={text("Scan return IMEI", "ফেরতের IMEI স্ক্যান")}
                   multi={false}
                   vibrateSuccess={false}
+                  validateImei
+                  onValidation={({ valid, value }) => {
+                    setReturnCode(value);
+                    setReturnFeedback({
+                      ok: valid,
+                      message: valid
+                        ? text("IMEI is valid.", "IMEI সঠিক।")
+                        : text("Invalid 15-digit IMEI.", "১৫ সংখ্যার সঠিক IMEI নয়।"),
+                    });
+                  }}
                   onCodes={(codes) => codes.forEach(applyReturnCode)}
                 />
                 <Input
-                  className="max-w-xs"
+                  className={`max-w-xs ${
+                    returnFeedback
+                      ? returnFeedback.ok
+                        ? "border-green-600 focus-visible:border-green-600 focus-visible:ring-green-600/20"
+                        : "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+                      : ""
+                  }`}
                   value={returnCode}
-                  onChange={(e) => setReturnCode(e.target.value)}
+                  aria-invalid={returnFeedback ? !returnFeedback.ok : undefined}
+                  onChange={(e) => {
+                    setReturnCode(e.target.value);
+                    setReturnFeedback(null);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();

@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScanButton } from "@/components/erp/ScanButton";
-import { imeiCandidatesFromBarcode } from "@/lib/barcode";
+import { isValidImei, validImeiCandidatesFromBarcode } from "@/lib/barcode";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -102,6 +102,9 @@ function NewPurchase() {
   const [lines, setLines] = useState<Line[]>([
     { key: 0, variant_id: "", qty: "1", rate: "", imeiText: "" },
   ]);
+  const [imeiScanFeedback, setImeiScanFeedback] = useState<
+    Record<number, { valid: boolean; message: string }>
+  >({});
 
   const lk = useQuery({
     queryKey: ["purchase-lookups", business.id],
@@ -275,8 +278,10 @@ function NewPurchase() {
             throw new Error(`Row ${i + 1}: enter ${qty} IMEI(s), found ${imeis.length}.`);
           for (const im of imeis) {
             for (const code of [im.imei1, im.imei2].filter(Boolean)) {
-              if (!/^\d{15}$/.test(code))
-                throw new Error(`Invalid IMEI (must be 15 digits): ${code}`);
+              if (!isValidImei(code))
+                throw new Error(
+                  `Invalid IMEI (must be 15 digits with a valid check digit): ${code}`,
+                );
               if (seen.has(code)) throw new Error(`IMEI entered twice: ${code}`);
               seen.add(code);
             }
@@ -404,6 +409,17 @@ function NewPurchase() {
                 const v = vmap.get(l.variant_id);
                 const serial = v?.products.categories?.is_serialized;
                 const count = serial ? parseImeis(l.imeiText).length : 0;
+                const imeiEntries = serial ? parseImeis(l.imeiText) : [];
+                const imeiValues = imeiEntries.flatMap((entry) =>
+                  [entry.imei1, entry.imei2].filter(Boolean),
+                );
+                const hasInvalidImei = imeiValues.some((imei) => !isValidImei(imei));
+                const allImeisValid =
+                  imeiValues.length > 0 &&
+                  !hasInvalidImei &&
+                  count === n(l.qty) &&
+                  imeiEntries.every((entry) => isValidImei(entry.imei1));
+                const scanFeedback = imeiScanFeedback[l.key];
                 const landed = r2(n(l.rate) * (1 + calc.factor));
                 return (
                   <div
@@ -474,9 +490,16 @@ function NewPurchase() {
                             <ScanButton
                               size="sm"
                               label="Scan"
+                              validateImei
+                              onValidation={({ valid, message }) =>
+                                setImeiScanFeedback((current) => ({
+                                  ...current,
+                                  [l.key]: { valid, message },
+                                }))
+                              }
                               onCodes={(c) => {
                                 const scanned = c.flatMap((code) => {
-                                  const candidates = imeiCandidatesFromBarcode(code);
+                                  const candidates = validImeiCandidatesFromBarcode(code);
                                   return candidates.length === 1 ? candidates : [code.trim()];
                                 });
                                 const text = [l.imeiText.trim(), ...scanned]
@@ -498,11 +521,37 @@ function NewPurchase() {
                         </div>
                         <Textarea
                           rows={Math.min(8, Math.max(2, n(l.qty)))}
-                          className="font-mono text-xs"
+                          className={`font-mono text-xs ${
+                            scanFeedback?.valid === false || hasInvalidImei
+                              ? "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20"
+                              : scanFeedback?.valid || allImeisValid
+                                ? "border-green-600 focus-visible:border-green-600 focus-visible:ring-green-600/20"
+                                : ""
+                          }`}
+                          aria-invalid={scanFeedback?.valid === false || hasInvalidImei}
                           value={l.imeiText}
-                          placeholder={"356789012345671, 356789012345689\n356789012345697"}
-                          onChange={(e) => setLine(l.key, { imeiText: e.target.value })}
+                          placeholder={"490154203237518, 560000000000002\n850000000000001"}
+                          onChange={(e) => {
+                            setLine(l.key, { imeiText: e.target.value });
+                            setImeiScanFeedback((current) => {
+                              const next = { ...current };
+                              delete next[l.key];
+                              return next;
+                            });
+                          }}
                         />
+                        {scanFeedback && (
+                          <p
+                            role="status"
+                            className={
+                              scanFeedback.valid
+                                ? "text-xs text-green-700 dark:text-green-400"
+                                : "text-xs text-destructive"
+                            }
+                          >
+                            {scanFeedback.message}
+                          </p>
+                        )}
                       </div>
                     )}
                     {v && (

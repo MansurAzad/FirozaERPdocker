@@ -13,14 +13,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { splitCodes } from "@/lib/barcode";
+import { splitCodes, validImeiCandidatesFromBarcode } from "@/lib/barcode";
 
 type Props = {
   onCodes: (codes: string[]) => void;
+  onValidation?: (result: { valid: boolean; value: string; message: string }) => void;
   multi?: boolean;
   label?: string;
   size?: "sm" | "default" | "icon";
   vibrateSuccess?: boolean;
+  validateImei?: boolean;
 };
 
 type ZoomCapabilities = MediaTrackCapabilities & {
@@ -39,10 +41,12 @@ type AdvancedCameraConstraint = MediaTrackConstraintSet & {
 /** Camera barcode / QR scanner. Multi mode keeps scanning and collects a bulk list. */
 export function ScanButton({
   onCodes,
+  onValidation,
   multi = true,
   label,
   size = "icon",
   vibrateSuccess = true,
+  validateImei = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
@@ -50,6 +54,7 @@ export function ScanButton({
   const [err, setErr] = useState("");
   const [starting, setStarting] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [feedback, setFeedback] = useState<{ valid: boolean; message: string } | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [torchSupported, setTorchSupported] = useState(false);
@@ -63,15 +68,19 @@ export function ScanButton({
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanner = useRef<IScannerControls | null>(null);
   const videoTrack = useRef<MediaStreamTrack | null>(null);
+  const audioContext = useRef<AudioContext | null>(null);
   const last = useRef("");
   const cb = useRef(onCodes);
   cb.current = onCodes;
+  const validationCb = useRef(onValidation);
+  validationCb.current = onValidation;
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
     let mountTimer: number | undefined;
     setErr("");
+    setFeedback(null);
     setStarting(true);
     setZoom(null);
     setTorchSupported(false);
@@ -155,14 +164,55 @@ export function ScanButton({
             if (last.current === code) last.current = "";
           }, 1500);
           setErr("");
-          if (vibrateSuccess) navigator.vibrate?.(60);
-          if (!multi) {
-            cb.current([code]);
-            activeControls.stop();
-            setOpen(false);
+          const scannedCodes = validateImei ? validImeiCandidatesFromBarcode(code) : [code];
+          if (validateImei && scannedCodes.length === 0) {
+            const message = "Invalid IMEI. Check the 15 digits and check digit, then scan again.";
+            setFeedback({
+              valid: false,
+              message,
+            });
+            validationCb.current?.({ valid: false, value: code, message });
+            navigator.vibrate?.([120, 50, 120]);
             return;
           }
-          setCodes((current) => (current.includes(code) ? current : [...current, code]));
+          if (validateImei) {
+            validationCb.current?.({
+              valid: true,
+              value: scannedCodes[0]!,
+              message: "IMEI is valid.",
+            });
+            setFeedback({ valid: true, message: "IMEI is valid." });
+            void playSuccessBeep()
+              .then((played) => {
+                if (!played && alive) {
+                  setFeedback({
+                    valid: true,
+                    message: "IMEI is valid. Audio feedback is unavailable.",
+                  });
+                }
+              })
+              .catch(() => {
+                if (alive) {
+                  setFeedback({
+                    valid: true,
+                    message: "IMEI is valid. Audio feedback is unavailable.",
+                  });
+                }
+              });
+          } else if (vibrateSuccess) {
+            navigator.vibrate?.(60);
+          }
+          if (!multi) {
+            cb.current(scannedCodes);
+            activeControls.stop();
+            if (validateImei) window.setTimeout(() => setOpen(false), 650);
+            else setOpen(false);
+            return;
+          }
+          setCodes((current) => [
+            ...current,
+            ...scannedCodes.filter((scannedCode) => !current.includes(scannedCode)),
+          ]);
         };
         const requestedVideo = cameraId
           ? {
@@ -287,7 +337,37 @@ export function ScanButton({
       videoTrack.current = null;
       activeScanner?.stop();
     };
-  }, [open, multi, vibrateSuccess, cameraId, retry]);
+  }, [open, multi, vibrateSuccess, validateImei, cameraId, retry]);
+
+  function prepareScanAudio() {
+    if (!validateImei || typeof window.AudioContext !== "function") return;
+    try {
+      audioContext.current ??= new window.AudioContext();
+      if (audioContext.current.state === "suspended") {
+        void audioContext.current.resume().catch(() => {});
+      }
+    } catch {
+      audioContext.current = null;
+    }
+  }
+
+  async function playSuccessBeep() {
+    const context = audioContext.current;
+    if (!context || context.state === "closed") return false;
+    await context.resume();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.16);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.17);
+    return true;
+  }
 
   function applyZoom(value: number) {
     const track = videoTrack.current;
@@ -322,10 +402,53 @@ export function ScanButton({
 
   function finish() {
     const all = [...new Set([...codes, ...splitCodes(paste)])];
-    if (all.length) onCodes(all);
+    const valid = validateImei ? all.flatMap(validImeiCandidatesFromBarcode) : all;
+    const invalid = validateImei
+      ? all.filter((code) => validImeiCandidatesFromBarcode(code).length === 0)
+      : [];
+    if (valid.length) {
+      if (validateImei) {
+        for (const value of valid) {
+          validationCb.current?.({ valid: true, value, message: "IMEI is valid." });
+        }
+      }
+      onCodes([...new Set(valid)]);
+      if (validateImei) {
+        setFeedback({ valid: true, message: "IMEI is valid." });
+        void playSuccessBeep()
+          .then((played) => {
+            if (!played) {
+              setFeedback({
+                valid: true,
+                message: "IMEI is valid. Audio feedback is unavailable.",
+              });
+            }
+          })
+          .catch(() => {
+            setFeedback({ valid: true, message: "IMEI is valid. Audio feedback is unavailable." });
+          });
+      }
+    }
+    if (invalid.length) {
+      for (const value of invalid) {
+        validationCb.current?.({
+          valid: false,
+          value,
+          message: "Invalid IMEI. Check the 15 digits and check digit.",
+        });
+      }
+      setFeedback({
+        valid: false,
+        message: `${invalid.length} invalid IMEI(s). Check the 15 digits and check digit.`,
+      });
+      navigator.vibrate?.([120, 50, 120]);
+    }
     setCodes([]);
-    setPaste("");
-    setOpen(false);
+    if (!invalid.length) setPaste("");
+    if (!validateImei || !invalid.length) {
+      if (validateImei && valid.length) window.setTimeout(() => setOpen(false), 650);
+      else setOpen(false);
+    }
   }
 
   return (
@@ -334,7 +457,10 @@ export function ScanButton({
         type="button"
         variant="outline"
         size={size}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          prepareScanAudio();
+          setOpen(true);
+        }}
         title="Scan barcode / QR (camera or bulk paste)"
         aria-label="Scan barcode or QR"
       >
@@ -431,6 +557,18 @@ export function ScanButton({
             </div>
           )}
           {err && <p className="text-xs text-destructive">{err}</p>}
+          {feedback && (
+            <p
+              role="status"
+              className={`rounded-md border px-3 py-2 text-sm ${
+                feedback.valid
+                  ? "border-green-600/40 bg-green-500/10 text-green-700 dark:text-green-400"
+                  : "border-destructive/40 bg-destructive/10 text-destructive"
+              }`}
+            >
+              {feedback.message}
+            </p>
+          )}
           {(multi || err) && (
             <>
               <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
