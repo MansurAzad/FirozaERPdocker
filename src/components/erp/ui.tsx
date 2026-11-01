@@ -22,39 +22,36 @@ export function F({
   useEffect(() => {
     if (initiallyEnabled) setEnabled(true);
   }, [initiallyEnabled]);
+  const collapsed = optional && !enabled;
   return (
-    <div className={"space-y-1.5 " + (className ?? "")}>
-      <Label className="text-xs">{label}</Label>
-      {optional ? (
-        <div className="relative min-w-0">
-          <fieldset
-            disabled={!enabled}
-            className={`m-0 min-w-0 border-0 p-0 ${enabled ? "" : "opacity-40"}`}
-          >
-            {children}
-          </fieldset>
-          {!enabled && (
-            <button
-              type="button"
-              className="absolute inset-0 z-10 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={`Enable ${label} field`}
-              onDoubleClick={() => setEnabled(true)}
-              onTouchEnd={(event) => {
-                event.preventDefault();
-                const now = Date.now();
-                if (now - lastTouch.current < 400) setEnabled(true);
-                lastTouch.current = now;
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") setEnabled(true);
-              }}
-            >
-              {label}
-            </button>
-          )}
-        </div>
+    <div className={collapsed ? "contents" : "space-y-1.5 " + (className ?? "")}>
+      {collapsed ? (
+        <button
+          type="button"
+          className="w-fit rounded-sm text-left text-xs font-semibold text-emerald-700 outline-none hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-400 dark:hover:text-emerald-300"
+          aria-label={label}
+          onDoubleClick={() => setEnabled(true)}
+          onTouchEnd={(event) => {
+            event.preventDefault();
+            const now = Date.now();
+            if (now - lastTouch.current < 400) {
+              setEnabled(true);
+              lastTouch.current = 0;
+            } else {
+              lastTouch.current = now;
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") setEnabled(true);
+          }}
+        >
+          {label}
+        </button>
       ) : (
-        children
+        <>
+          <Label className="text-xs">{label}</Label>
+          {children}
+        </>
       )}
     </div>
   );

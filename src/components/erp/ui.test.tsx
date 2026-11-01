@@ -7,21 +7,20 @@ import { F } from "./ui";
 afterEach(cleanup);
 
 describe("F optional fields", () => {
-  it("keeps optional fields disabled until activated, then enables by double-click", () => {
+  it("omits optional inputs until the mint label is double-clicked", () => {
     render(
       <F label="Reference" optional>
         <Input aria-label="Reference value" />
       </F>,
     );
 
-    const input = screen.getByRole("textbox", { name: "Reference value" });
-    expect(input).toBeDisabled();
-    const disabledField = screen.getByRole("button", { name: /enable reference field/i });
-    expect(disabledField).toHaveTextContent("Reference");
-    expect(disabledField).not.toHaveTextContent(/double-click|double-tap/i);
-    expect(screen.getByText("Reference", { selector: "label" })).toBeInTheDocument();
-    fireEvent.doubleClick(disabledField);
-    expect(input).toBeEnabled();
+    expect(screen.queryByRole("textbox", { name: "Reference value" })).not.toBeInTheDocument();
+    const label = screen.getByRole("button", { name: "Reference" });
+    expect(label).toHaveTextContent("Reference");
+    expect(label.className).toContain("font-semibold");
+    expect(label.className).toContain("text-emerald-700");
+    fireEvent.doubleClick(label);
+    expect(screen.getByRole("textbox", { name: "Reference value" })).toBeEnabled();
   });
 
   it("supports keyboard and double-tap activation", () => {
@@ -30,9 +29,7 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" />
       </F>,
     );
-    fireEvent.keyDown(screen.getByRole("button", { name: /enable reference field/i }), {
-      key: "Enter",
-    });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reference" }), { key: "Enter" });
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeEnabled();
     unmount();
 
@@ -41,24 +38,36 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" />
       </F>,
     );
-    const button = screen.getByRole("button", { name: /enable reference field/i });
+    const button = screen.getByRole("button", { name: "Reference" });
     fireEvent.touchEnd(button);
     fireEvent.touchEnd(button);
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeEnabled();
   });
 
-  it("disables nested form controls, not just direct children", () => {
+  it("does not reserve full-row space for a collapsed optional field", () => {
     render(
-      <F label="Reference" optional>
-        <div>
+      <div className="grid grid-cols-2">
+        <F label="Reference" optional className="col-span-2">
           <Input aria-label="Reference value" />
-        </div>
+        </F>
+        <F label="Required">
+          <Input aria-label="Required value" />
+        </F>
+      </div>,
+    );
+
+    expect(screen.getByRole("button", { name: "Reference" }).parentElement).toHaveClass("contents");
+    expect(screen.getByRole("textbox", { name: "Required value" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Reference value" })).not.toBeInTheDocument();
+  });
+
+  it("keeps required fields rendered", () => {
+    render(
+      <F label="Required">
+        <Input aria-label="Required value" />
       </F>,
     );
-    const input = screen.getByRole("textbox", { name: "Reference value" });
-    expect(input).toBeDisabled();
-    fireEvent.doubleClick(screen.getByRole("button", { name: /enable reference field/i }));
-    expect(input).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Required value" })).toBeEnabled();
   });
 
   it("preserves a child's intentional disabled state", () => {
@@ -67,7 +76,7 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" disabled />
       </F>,
     );
-    fireEvent.doubleClick(screen.getByRole("button", { name: /enable reference field/i }));
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Reference" }));
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeDisabled();
   });
 });
