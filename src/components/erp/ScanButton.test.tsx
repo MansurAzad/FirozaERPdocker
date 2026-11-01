@@ -98,7 +98,11 @@ describe("ScanButton camera scanning", () => {
     fireEvent.click(screen.getByRole("button", { name: "Scan barcode or QR" }));
     await waitFor(() => expect(scannerMock.decode).toHaveBeenCalledTimes(2));
     expect(scannerMock.decode.mock.calls[0]?.[0]).toMatchObject({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
     });
     expect(scannerMock.decode.mock.calls[1]?.[0]).toEqual({ audio: false, video: true });
 

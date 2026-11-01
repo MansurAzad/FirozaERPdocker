@@ -217,13 +217,13 @@ export function ScanButton({
         const requestedVideo = cameraId
           ? {
               deviceId: { exact: cameraId },
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
             }
           : {
               facingMode: { ideal: "environment" },
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
             };
         const constraints: MediaStreamConstraints[] = [
           { audio: false, video: requestedVideo },
