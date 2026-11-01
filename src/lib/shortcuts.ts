@@ -29,7 +29,7 @@ export function toggleFullscreen() {
 }
 
 const FOCUSABLE =
-  "input:not([type=hidden]):not([disabled]):not([readonly]),select:not([disabled]),textarea:not([disabled]),button[role=combobox]:not([disabled])";
+  "input:not([type=hidden]):not(:disabled):not([readonly]),select:not(:disabled),textarea:not(:disabled),button[role=combobox]:not(:disabled)";
 
 function isTyping(el: Element | null) {
   return (
@@ -106,7 +106,7 @@ export function useAppShortcuts(h: {
         return;
       }
       const fields = [...form.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (x) => x.offsetParent !== null,
+        (x) => !x.matches(":disabled") && x.offsetParent !== null,
       );
       if (fields.length <= 1) return; // single scan/search box: Enter submits
       const i = fields.indexOf(t);

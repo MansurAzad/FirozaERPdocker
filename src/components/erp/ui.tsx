@@ -24,14 +24,7 @@ export function F({
   }, [initiallyEnabled]);
   return (
     <div className={"space-y-1.5 " + (className ?? "")}>
-      <Label className="text-xs">
-        {label}
-        {optional && (
-          <span className="ml-1 font-normal text-muted-foreground">
-            · Optional{enabled ? "" : " · double-click/tap to enable"}
-          </span>
-        )}
-      </Label>
+      <Label className="text-xs">{label}</Label>
       {optional ? (
         <div className="relative min-w-0">
           <fieldset
@@ -44,7 +37,7 @@ export function F({
             <button
               type="button"
               className="absolute inset-0 z-10 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={`Enable optional ${label} field`}
+              aria-label={`Enable ${label} field`}
               onDoubleClick={() => setEnabled(true)}
               onTouchEnd={(event) => {
                 event.preventDefault();
@@ -56,7 +49,7 @@ export function F({
                 if (event.key === "Enter" || event.key === " ") setEnabled(true);
               }}
             >
-              {enabled ? "" : "Double-click or double-tap to enter"}
+              {label}
             </button>
           )}
         </div>

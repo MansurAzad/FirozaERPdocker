@@ -16,7 +16,11 @@ describe("F optional fields", () => {
 
     const input = screen.getByRole("textbox", { name: "Reference value" });
     expect(input).toBeDisabled();
-    fireEvent.doubleClick(screen.getByRole("button", { name: /enable optional reference field/i }));
+    const disabledField = screen.getByRole("button", { name: /enable reference field/i });
+    expect(disabledField).toHaveTextContent("Reference");
+    expect(disabledField).not.toHaveTextContent(/double-click|double-tap/i);
+    expect(screen.getByText("Reference", { selector: "label" })).toBeInTheDocument();
+    fireEvent.doubleClick(disabledField);
     expect(input).toBeEnabled();
   });
 
@@ -26,7 +30,7 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" />
       </F>,
     );
-    fireEvent.keyDown(screen.getByRole("button", { name: /enable optional reference field/i }), {
+    fireEvent.keyDown(screen.getByRole("button", { name: /enable reference field/i }), {
       key: "Enter",
     });
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeEnabled();
@@ -37,7 +41,7 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" />
       </F>,
     );
-    const button = screen.getByRole("button", { name: /enable optional reference field/i });
+    const button = screen.getByRole("button", { name: /enable reference field/i });
     fireEvent.touchEnd(button);
     fireEvent.touchEnd(button);
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeEnabled();
@@ -53,7 +57,7 @@ describe("F optional fields", () => {
     );
     const input = screen.getByRole("textbox", { name: "Reference value" });
     expect(input).toBeDisabled();
-    fireEvent.doubleClick(screen.getByRole("button", { name: /enable optional reference field/i }));
+    fireEvent.doubleClick(screen.getByRole("button", { name: /enable reference field/i }));
     expect(input).toBeEnabled();
   });
 
@@ -63,7 +67,7 @@ describe("F optional fields", () => {
         <Input aria-label="Reference value" disabled />
       </F>,
     );
-    fireEvent.doubleClick(screen.getByRole("button", { name: /enable optional reference field/i }));
+    fireEvent.doubleClick(screen.getByRole("button", { name: /enable reference field/i }));
     expect(screen.getByRole("textbox", { name: "Reference value" })).toBeDisabled();
   });
 });

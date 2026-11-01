@@ -49,6 +49,7 @@ export function ScanButton({
   const [paste, setPaste] = useState("");
   const [err, setErr] = useState("");
   const [starting, setStarting] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
   const [torchSupported, setTorchSupported] = useState(false);
@@ -69,16 +70,43 @@ export function ScanButton({
   useEffect(() => {
     if (!open) return;
     let alive = true;
+    let mountTimer: number | undefined;
     setErr("");
     setStarting(true);
     setZoom(null);
     setTorchSupported(false);
     setTorchOn(false);
+    setCameras([]);
     videoTrack.current = null;
     last.current = "";
     (async () => {
       try {
-        const video = videoRef.current;
+        if (!window.isSecureContext) {
+          throw new Error(
+            "Camera access requires HTTPS or localhost. Use a USB scanner or paste codes below.",
+          );
+        }
+        if (typeof navigator.mediaDevices?.getUserMedia !== "function") {
+          throw new Error(
+            "Camera access is unavailable in this browser. Use a USB scanner or paste codes below.",
+          );
+        }
+        const video =
+          videoRef.current ??
+          (await new Promise<HTMLVideoElement | null>((resolve) => {
+            let attempts = 0;
+            const findPreview = () => {
+              const mountedVideo = videoRef.current;
+              if (!alive || mountedVideo || attempts >= 20) {
+                resolve(mountedVideo);
+                return;
+              }
+              attempts += 1;
+              mountTimer = window.setTimeout(findPreview, 50);
+            };
+            findPreview();
+          }));
+        if (!alive) return;
         if (!video) {
           setErr("Camera preview could not be opened. Close this window and try again.");
           setStarting(false);
@@ -113,43 +141,77 @@ export function ScanButton({
           delayBetweenScanAttempts: 120,
           delayBetweenScanSuccess: 450,
         });
-        const controls = await reader.decodeFromConstraints(
-          {
-            audio: false,
-            video: {
-              ...(cameraId
-                ? { deviceId: { exact: cameraId } }
-                : { facingMode: { ideal: "environment" } }),
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          },
-          video,
-          (result, _error, activeControls) => {
-            if (!alive || !result) return;
-            scanner.current = activeControls;
-            const code = result.getText().trim();
-            if (!code || code === last.current) return;
-            last.current = code;
-            setTimeout(() => {
-              if (last.current === code) last.current = "";
-            }, 1500);
-            if (vibrateSuccess) navigator.vibrate?.(60);
-            if (!multi) {
-              cb.current([code]);
-              activeControls.stop();
-              setOpen(false);
-              return;
+        const handleResult = (
+          result: { getText: () => string } | undefined,
+          _error: unknown,
+          activeControls: IScannerControls,
+        ) => {
+          if (!alive || !result) return;
+          scanner.current = activeControls;
+          const code = result.getText().trim();
+          if (!code || code === last.current) return;
+          last.current = code;
+          setTimeout(() => {
+            if (last.current === code) last.current = "";
+          }, 1500);
+          setErr("");
+          if (vibrateSuccess) navigator.vibrate?.(60);
+          if (!multi) {
+            cb.current([code]);
+            activeControls.stop();
+            setOpen(false);
+            return;
+          }
+          setCodes((current) => (current.includes(code) ? current : [...current, code]));
+        };
+        const requestedVideo = cameraId
+          ? {
+              deviceId: { exact: cameraId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
             }
-            setCodes((c) => (c.includes(code) ? c : [...c, code]));
-          },
-        );
+          : {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            };
+        const constraints: MediaStreamConstraints[] = [
+          { audio: false, video: requestedVideo },
+          ...(cameraId ? [{ audio: false, video: { facingMode: { ideal: "environment" } } }] : []),
+          { audio: false, video: true },
+        ];
+        let controls: IScannerControls | undefined;
+        let cameraError: unknown;
+        for (const constraint of constraints) {
+          try {
+            controls = await reader.decodeFromConstraints(constraint, video, handleResult);
+            break;
+          } catch (error) {
+            cameraError = error;
+            const name =
+              error && typeof error === "object" && "name" in error ? String(error.name) : "";
+            if (name === "NotAllowedError" || name === "SecurityError") throw error;
+          }
+        }
+        if (!controls) throw cameraError ?? new Error("The camera could not be started.");
         if (alive) {
           scanner.current = controls;
           setStarting(false);
           const stream = video.srcObject;
-          const track = stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
-          const capabilities = track?.getCapabilities() as ZoomCapabilities | undefined;
+          const track =
+            stream && typeof (stream as MediaStream).getVideoTracks === "function"
+              ? (stream as MediaStream).getVideoTracks()[0]
+              : undefined;
+          let capabilities: ZoomCapabilities | undefined;
+          try {
+            capabilities = track?.getCapabilities?.() as ZoomCapabilities | undefined;
+          } catch (error) {
+            setErr(
+              error instanceof Error
+                ? `Scanner is active, but camera controls are unavailable: ${error.message}`
+                : "Scanner is active, but camera controls are unavailable.",
+            );
+          }
           videoTrack.current = track ?? null;
           setTorchSupported(capabilities?.torch === true);
           if (track && capabilities?.focusMode?.includes("continuous")) {
@@ -163,19 +225,21 @@ export function ScanButton({
                 );
             });
           }
-          void navigator.mediaDevices
-            .enumerateDevices()
-            .then((devices) => {
-              if (alive) setCameras(devices.filter((device) => device.kind === "videoinput"));
-            })
-            .catch((error: unknown) => {
-              if (alive)
-                setErr(
-                  error instanceof Error
-                    ? `Could not list available cameras: ${error.message}`
-                    : "Could not list available cameras.",
-                );
-            });
+          if (typeof navigator.mediaDevices?.enumerateDevices === "function") {
+            void navigator.mediaDevices
+              .enumerateDevices()
+              .then((devices) => {
+                if (alive) setCameras(devices.filter((device) => device.kind === "videoinput"));
+              })
+              .catch((error: unknown) => {
+                if (alive)
+                  setErr(
+                    error instanceof Error
+                      ? `Scanner is active, but available cameras could not be listed: ${error.message}`
+                      : "Scanner is active, but available cameras could not be listed.",
+                  );
+              });
+          }
           const range = capabilities?.zoom;
           if (
             track &&
@@ -198,13 +262,18 @@ export function ScanButton({
         }
       } catch (error) {
         if (alive) {
-          const name = error instanceof DOMException ? error.name : "";
+          const name =
+            error && typeof error === "object" && "name" in error ? String(error.name) : "";
           setErr(
             name === "NotAllowedError"
               ? "Camera access is blocked. Allow camera permission and try again."
               : name === "NotFoundError"
                 ? "No camera was found. Use a USB scanner or paste codes below."
-                : "Could not start the camera. Check camera permission and try again.",
+                : name === "NotReadableError"
+                  ? "The camera is already in use by another app. Close it and try again."
+                  : error instanceof Error
+                    ? `Could not start the camera: ${error.message}`
+                    : "Could not start the camera. Check camera permission and try again.",
           );
           setStarting(false);
         }
@@ -212,12 +281,13 @@ export function ScanButton({
     })();
     return () => {
       alive = false;
+      if (mountTimer !== undefined) window.clearTimeout(mountTimer);
       const activeScanner = scanner.current;
       scanner.current = null;
       videoTrack.current = null;
       activeScanner?.stop();
     };
-  }, [open, multi, vibrateSuccess, cameraId]);
+  }, [open, multi, vibrateSuccess, cameraId, retry]);
 
   function applyZoom(value: number) {
     const track = videoTrack.current;
@@ -361,7 +431,7 @@ export function ScanButton({
             </div>
           )}
           {err && <p className="text-xs text-destructive">{err}</p>}
-          {multi && (
+          {(multi || err) && (
             <>
               <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
                 {codes.map((c) => (
@@ -380,18 +450,37 @@ export function ScanButton({
               <Textarea
                 rows={3}
                 className="font-mono text-xs"
-                placeholder="Or paste many codes (one per line, or from a USB scanner)"
+                placeholder={
+                  multi
+                    ? "Or paste many codes (one per line, or from a USB scanner)"
+                    : "Paste or scan a code with a USB scanner"
+                }
                 value={paste}
                 onChange={(e) => setPaste(e.target.value)}
               />
             </>
           )}
-          {multi && (
+          {err && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRetry((current) => current + 1)}
+            >
+              Try camera again
+            </Button>
+          )}
+          {(multi || err) && (
             <DialogFooter>
               <span className="mr-auto self-center text-xs text-muted-foreground">
                 {codes.length + splitCodes(paste).length} code(s)
               </span>
-              <Button onClick={finish}>Add all</Button>
+              <Button
+                type="button"
+                onClick={finish}
+                disabled={!codes.length && !splitCodes(paste).length}
+              >
+                {multi ? "Add all" : "Use code"}
+              </Button>
             </DialogFooter>
           )}
         </DialogContent>
