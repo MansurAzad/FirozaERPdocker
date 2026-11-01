@@ -8,6 +8,7 @@ import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { useBranches, useMoneyAccounts } from "@/lib/finance";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { ContextInfo } from "@/components/erp/ContextInfo";
 import { F, METHODS, methodLabel, selectCls, today, type Method } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,9 +95,14 @@ function DueCollection() {
     id: string;
     name: string;
     due: number;
+    creditLimit: number;
     branchId: string;
   } | null>(null);
   const [f, setF] = useState<Record<string, string>>({});
+  const receiveAmount = Number(f["amount"] ?? 0);
+  const receiveAmountInvalid =
+    Boolean(pay) &&
+    (!Number.isFinite(receiveAmount) || receiveAmount <= 0 || receiveAmount > (pay?.due ?? 0));
   const collectingBranchId = pay?.branchId ?? branchId;
   const branchAccounts = (accounts.data ?? []).filter(
     (account) =>
@@ -169,6 +175,10 @@ function DueCollection() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!pay) throw new Error("Select a customer first.");
+      const amount = Number(f["amount"] ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > pay.due)
+        throw new Error(`Payment must be greater than zero and no more than ${bdt(pay.due)}.`);
       const { error } = await supabase.rpc("receive_customer_payment_for_branch", {
         _branch: pay!.branchId,
         _biz: business.id,
@@ -321,6 +331,7 @@ function DueCollection() {
                             id: r.customer_id!,
                             name: r.name!,
                             due: Number(r.current_due),
+                            creditLimit: Number(r.credit_limit ?? 0),
                             branchId: r.branch_id!,
                           });
                         }}
@@ -342,6 +353,25 @@ function DueCollection() {
               Receive from {pay?.name} — due {bdt(pay?.due)}
             </DialogTitle>
           </DialogHeader>
+          {pay && (
+            <ContextInfo
+              items={[
+                {
+                  label: "Outstanding due",
+                  value: bdt(pay.due),
+                  tone: pay.due > 0 ? "danger" : "default",
+                },
+                {
+                  label: "Credit limit",
+                  value: pay.creditLimit > 0 ? bdt(pay.creditLimit) : "No limit",
+                },
+                {
+                  label: "Due after collection",
+                  value: bdt(Math.max(0, pay.due - Math.max(0, receiveAmount))),
+                },
+              ]}
+            />
+          )}
           <form
             className="grid gap-3 sm:grid-cols-2"
             onSubmit={(e) => {
@@ -352,11 +382,18 @@ function DueCollection() {
             <F label="Amount (৳)">
               <Input
                 type="number"
+                min="0.01"
+                max={pay?.due}
                 step="0.01"
                 value={f["amount"] ?? ""}
                 onChange={(e) => setF({ ...f, amount: e.target.value })}
               />
             </F>
+            {receiveAmountInvalid && (
+              <p className="text-xs text-destructive sm:col-span-2" role="alert">
+                Enter an amount from ৳0.01 up to the outstanding due of {bdt(pay?.due)}.
+              </p>
+            )}
             <F label="Method">
               <select
                 className={selectCls}
@@ -408,7 +445,7 @@ function DueCollection() {
               <Button type="button" variant="outline" onClick={() => setPay(null)}>
                 Cancel
               </Button>
-              <Button disabled={save.isPending}>Receive payment</Button>
+              <Button disabled={save.isPending || receiveAmountInvalid}>Receive payment</Button>
             </DialogFooter>
           </form>
         </DialogContent>

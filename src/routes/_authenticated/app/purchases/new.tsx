@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { ContextInfo } from "@/components/erp/ContextInfo";
 import { F } from "@/components/erp/ui";
 import { useMoneyAccounts } from "@/lib/finance";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ function NewPurchase() {
   const lk = useQuery({
     queryKey: ["purchase-lookups", business.id],
     queryFn: async () => {
-      const [s, b, v, a] = await Promise.all([
+      const [s, b, v, a, supplierBalances] = await Promise.all([
         supabase
           .from("suppliers")
           .select("id,name,company,status")
@@ -133,13 +134,18 @@ function NewPurchase() {
           .from("supplier_branch_assignments")
           .select("branch_id,supplier_id,is_default")
           .eq("business_id", business.id),
+        supabase
+          .from("supplier_balances")
+          .select("supplier_id,current_payable")
+          .eq("business_id", business.id),
       ]);
-      for (const x of [s, b, v, a]) if (x.error) throw x.error;
+      for (const x of [s, b, v, a, supplierBalances]) if (x.error) throw x.error;
       return {
         suppliers: s.data!,
         branches: b.data!,
         variants: v.data!,
         supplierAssignments: a.data!,
+        supplierBalances: supplierBalances.data!,
       };
     },
   });
@@ -157,6 +163,28 @@ function NewPurchase() {
   const selectedBranch = useMemo(
     () => lk.data?.branches.find((branch) => branch.id === head.branch_id),
     [head.branch_id, lk.data],
+  );
+  const selectedVariantIds = useMemo(
+    () => [...new Set(lines.map((line) => line.variant_id).filter(Boolean))],
+    [lines],
+  );
+  const currentStock = useQuery({
+    enabled: Boolean(head.branch_id && selectedVariantIds.length),
+    queryKey: ["purchase-context-stock", business.id, head.branch_id, selectedVariantIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stock")
+        .select("variant_id,qty")
+        .eq("business_id", business.id)
+        .eq("branch_id", head.branch_id)
+        .in("variant_id", selectedVariantIds);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const stockByVariant = useMemo(
+    () => new Map((currentStock.data ?? []).map((item) => [item.variant_id, Number(item.qty)])),
+    [currentStock.data],
   );
   const branchSupplierAssignments = useMemo(
     () =>
@@ -177,6 +205,10 @@ function NewPurchase() {
         : (lk.data?.suppliers ?? []),
     [branchSupplierAssignments, lk.data, selectedBranch],
   );
+  const selectedSupplierBalance = lk.data?.supplierBalances.find(
+    (balance) => balance.supplier_id === head.supplier_id,
+  );
+  const selectedSupplierPayable = Number(selectedSupplierBalance?.current_payable ?? 0);
   const activePaymentAccounts = useMemo(
     () =>
       (moneyAccts.data ?? []).filter(
@@ -330,6 +362,14 @@ function NewPurchase() {
         title="New Purchase"
         sub="Posting updates stock, IMEIs and supplier due in one step."
       />
+      {lk.error && (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          Could not load purchase, supplier balance, and branch data: {friendlyError(lk.error)}
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -353,6 +393,24 @@ function NewPurchase() {
                   No active supplier is assigned to this shop. Ask an administrator to configure
                   FIROZA ENTERPRISE or assign another supplier.
                 </p>
+              )}
+              {head.supplier_id && lk.data && (
+                <ContextInfo
+                  className="sm:col-span-2"
+                  items={[
+                    {
+                      label: "Existing payable (all locations)",
+                      value: bdt(selectedSupplierPayable),
+                      tone: selectedSupplierPayable > 0 ? "warning" : "default",
+                    },
+                    {
+                      label: "Payable after this purchase",
+                      value: bdt(selectedSupplierPayable + Math.max(0, calc.due)),
+                      tone:
+                        selectedSupplierPayable + Math.max(0, calc.due) > 0 ? "warning" : "default",
+                    },
+                  ]}
+                />
               )}
             </div>
             <div className="space-y-1.5">
@@ -446,6 +504,23 @@ function NewPurchase() {
                           </option>
                         ))}
                       </select>
+                      {v && (
+                        <p className="text-xs text-muted-foreground">
+                          Current stock at this location:{" "}
+                          <span className="num font-medium text-foreground">
+                            {currentStock.isError
+                              ? "—"
+                              : currentStock.isPending
+                                ? "…"
+                                : (stockByVariant.get(v.id) ?? 0)}
+                          </span>
+                          {currentStock.isError && (
+                            <span className="ml-1 text-destructive">
+                              Stock information could not be loaded.
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Qty</Label>

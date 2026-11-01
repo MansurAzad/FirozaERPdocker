@@ -14,6 +14,7 @@ import {
   matchesFieldSalesImei,
 } from "@/lib/field-sales";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { ContextInfo } from "@/components/erp/ContextInfo";
 import { F, selectCls, today } from "@/components/erp/ui";
 import { ScanButton } from "@/components/erp/ScanButton";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,18 @@ type ImeiRecord = { id: string; imei1: string; imei2: string | null; variant_id:
 const ISSUE_ROLES = ["owner", "manager", "store_keeper"];
 const APPROVAL_ROLES = ["owner", "manager", "accountant", "branch_manager"];
 
+function dhakaMonthStart() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  if (!year || !month) throw new Error("Could not determine the current Dhaka month.");
+  return `${year}-${month}-01`;
+}
+
 function FieldSales() {
   const { business, role, userId, access } = useBusiness();
   const { lang } = useI18n();
@@ -52,6 +65,7 @@ function FieldSales() {
   const text = (en: string, bn: string) => (lang === "bn" ? bn : en);
   const canIssue = ISSUE_ROLES.includes(role) && hasAccess(access, "transfers", "create");
   const canApprove = APPROVAL_ROLES.includes(role) && hasAccess(access, "sales", "approve");
+  const canViewCommission = ["owner", "manager", "accountant"].includes(role);
   const canReject =
     ["owner", "manager", "branch_manager"].includes(role) && hasAccess(access, "sales", "approve");
 
@@ -183,6 +197,57 @@ function FieldSales() {
   const openTrip =
     trips.data?.find((trip) => trip.id === activeTripId) ??
     trips.data?.find((trip) => trip.salesman_user_id === userId && trip.status === "open");
+  const selectedSalesman = members.data?.find((person) => person.user_id === salesmanUser);
+  const monthCommission = useQuery({
+    enabled: canIssue && canViewCommission && Boolean(selectedSalesman?.id),
+    queryKey: ["field-sales-month-commission", business.id, selectedSalesman?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_salesman_commission_summary", {
+        _biz: business.id,
+        _salesman_id: selectedSalesman!.id,
+        _from_date: dhakaMonthStart(),
+        _to_date: today(),
+      });
+      if (error) throw error;
+      return data[0] ?? null;
+    },
+  });
+  const tripCustomerBalances = useQuery({
+    enabled: Boolean(openTrip?.sales_branch_id),
+    queryKey: ["field-sales-customer-balances", business.id, openTrip?.sales_branch_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_branch_balances")
+        .select("customer_id,current_due,credit_limit")
+        .eq("business_id", business.id)
+        .eq("branch_id", openTrip!.sales_branch_id);
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 30_000,
+  });
+  const saleCustomerBalance = tripCustomerBalances.data?.find(
+    (balance) => balance.customer_id === saleCustomer,
+  );
+  const collectionCustomerBalance = tripCustomerBalances.data?.find(
+    (balance) => balance.customer_id === collectionCustomer,
+  );
+  const saleVariantInfo = variants.data?.find((item) => item.id === saleVariant);
+  const saleEstimatedDue = Math.max(
+    0,
+    Number(saleQty) * Number(salePrice || saleVariantInfo?.retail_price || 0) -
+      Number(salePaid || 0),
+  );
+  const projectedSaleCustomerDue = Number(saleCustomerBalance?.current_due ?? 0) + saleEstimatedDue;
+  const saleCreditLimit = Number(saleCustomerBalance?.credit_limit ?? 0);
+  const saleExceedsCreditLimit = saleCreditLimit > 0 && projectedSaleCustomerDue > saleCreditLimit;
+  const collectionDue = Number(collectionCustomerBalance?.current_due ?? 0);
+  const collectionAmountNumber = Number(collectionAmount || 0);
+  const collectionExceedsDue =
+    Boolean(collectionCustomer) &&
+    (!Number.isFinite(collectionAmountNumber) ||
+      collectionAmountNumber <= 0 ||
+      collectionAmountNumber > collectionDue);
   const tripSummary = useQuery({
     enabled: !!openTrip,
     queryKey: ["field-sales-trip-summary", business.id, openTrip?.id],
@@ -433,6 +498,13 @@ function FieldSales() {
       const paid = Number(salePaid || 0);
       if (!Number.isFinite(paid) || paid < 0 || paid > qty * price)
         throw new Error(text("Enter a valid cash amount.", "সঠিক নগদ টাকার পরিমাণ লিখুন।"));
+      if (saleExceedsCreditLimit)
+        throw new Error(
+          text(
+            "This sale would exceed the retailer's credit limit. Increase the cash received first.",
+            "এই বিক্রিতে খুচরা বিক্রেতার ক্রেডিট সীমা অতিক্রম হবে। আগে নগদ আদায় বাড়ান।",
+          ),
+        );
       const { data, error } = await supabase.rpc("create_field_sales_sale", {
         _biz: business.id,
         _trip: openTrip.id,
@@ -475,6 +547,13 @@ function FieldSales() {
       const amount = Number(collectionAmount);
       if (!Number.isFinite(amount) || amount <= 0)
         throw new Error(text("Enter a valid amount.", "সঠিক টাকার পরিমাণ লিখুন।"));
+      if (amount > collectionDue)
+        throw new Error(
+          text(
+            `Collection cannot exceed the current due of ${bdt(collectionDue)}.`,
+            `আদায়ের পরিমাণ বর্তমান বাকি ${bdt(collectionDue)}-এর বেশি হতে পারবে না।`,
+          ),
+        );
       const { data, error } = await supabase.rpc("collect_field_sales_payment", {
         _biz: business.id,
         _trip: openTrip.id,
@@ -608,6 +687,18 @@ function FieldSales() {
     return variant ? [{ stock, variant }] : [];
   });
   const activeTripItems = tripItems.data ?? [];
+  const selectedTripItem = activeTripItems.find((item) => item.variant_id === saleVariant);
+  const selectedTripItemSold = (tripSaleItems.data ?? [])
+    .filter((item) => item.variant_id === saleVariant)
+    .reduce((sum, sale) => sum + sale.qty, 0);
+  const selectedTripItemRemaining = selectedTripItem
+    ? fieldSalesRemainingQty(
+        selectedTripItem.qty_issued,
+        selectedTripItem.qty_returned,
+        selectedTripItem.qty_damaged,
+        selectedTripItemSold,
+      )
+    : 0;
   const expectedCash =
     tripSummary.data && typeof tripSummary.data === "object" && !Array.isArray(tripSummary.data)
       ? Number(tripSummary.data["expected_cash"] ?? 0)
@@ -620,8 +711,17 @@ function FieldSales() {
     { label: text("Retailers", "খুচরা বিক্রেতা"), error: customers.error },
     { label: text("Trips", "ট্রিপ"), error: trips.error },
     { label: text("Trip stock", "ট্রিপের স্টক"), error: tripItems.error },
+    { label: text("Warehouse stock", "গুদামের স্টক"), error: warehouseStock.error },
     { label: text("IMEIs", "IMEI"), error: tripImeis.error ?? tripImeiCodes.error },
     { label: text("Trip sales", "ট্রিপ বিক্রি"), error: tripSales.error ?? tripSaleItems.error },
+    {
+      label: text("Retailer balances", "খুচরা বিক্রেতার বাকি"),
+      error: tripCustomerBalances.error,
+    },
+    {
+      label: text("Salesman commission", "সেলসম্যানের কমিশন"),
+      error: monthCommission.error,
+    },
     { label: text("Deposit accounts", "জমার অ্যাকাউন্ট"), error: accounts.error },
     {
       label: text("Settlement review", "হিসাব পর্যালোচনা"),
@@ -829,6 +929,35 @@ function FieldSales() {
                 ))}
               </select>
             </F>
+            {selectedSalesman && canViewCommission && (
+              <ContextInfo
+                className="sm:col-span-2 lg:col-span-3"
+                items={[
+                  {
+                    label: text("Commission earned this month", "এই মাসের অর্জিত কমিশন"),
+                    value: monthCommission.isPending
+                      ? "…"
+                      : bdt(monthCommission.data?.total_commission ?? 0),
+                  },
+                  {
+                    label: text("Commission paid this month", "এই মাসে পরিশোধিত কমিশন"),
+                    value: monthCommission.isPending
+                      ? "…"
+                      : bdt(monthCommission.data?.paid_commission ?? 0),
+                  },
+                  {
+                    label: text("Commission pending this month", "এই মাসে বাকি কমিশন"),
+                    value: monthCommission.isPending
+                      ? "…"
+                      : bdt(monthCommission.data?.pending_commission ?? 0),
+                    tone:
+                      Number(monthCommission.data?.pending_commission ?? 0) > 0
+                        ? "warning"
+                        : "default",
+                  },
+                ]}
+              />
+            )}
             <F label={text("Stock house", "স্টক হাউস")}>
               <select
                 className={selectCls}
@@ -1054,6 +1183,42 @@ function FieldSales() {
                         ))}
                       </select>
                     </F>
+                    {saleCustomer && !tripCustomerBalances.isError && (
+                      <ContextInfo
+                        items={[
+                          {
+                            label: text("Current due", "বর্তমান বাকি"),
+                            value: tripCustomerBalances.isPending
+                              ? "…"
+                              : bdt(saleCustomerBalance?.current_due ?? 0),
+                            tone:
+                              Number(saleCustomerBalance?.current_due ?? 0) > 0
+                                ? "warning"
+                                : "default",
+                          },
+                          {
+                            label: text("Credit limit", "ক্রেডিট সীমা"),
+                            value:
+                              saleCreditLimit > 0
+                                ? bdt(saleCreditLimit)
+                                : text("No limit", "সীমা নেই"),
+                          },
+                          {
+                            label: text("Due after this sale", "এই বিক্রির পর বাকি"),
+                            value: bdt(projectedSaleCustomerDue),
+                            tone: saleExceedsCreditLimit ? "danger" : "default",
+                          },
+                        ]}
+                      />
+                    )}
+                    {saleExceedsCreditLimit && (
+                      <p className="text-xs text-destructive" role="alert">
+                        {text(
+                          `Projected due exceeds the credit limit by ${bdt(projectedSaleCustomerDue - saleCreditLimit)}.`,
+                          `সম্ভাব্য বাকি ক্রেডিট সীমার চেয়ে ${bdt(projectedSaleCustomerDue - saleCreditLimit)} বেশি।`,
+                        )}
+                      </p>
+                    )}
                     <F label={text("Product issued on this trip", "এই ট্রিপে ইস্যু করা পণ্য")}>
                       <select
                         className={selectCls}
@@ -1082,6 +1247,14 @@ function FieldSales() {
                         })}
                       </select>
                     </F>
+                    {saleVariant && (
+                      <p className="text-xs text-muted-foreground">
+                        {text("Remaining on this trip", "এই ট্রিপে অবশিষ্ট")}:{" "}
+                        <span className="num font-medium text-foreground">
+                          {selectedTripItemRemaining}
+                        </span>
+                      </p>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <F label={text("Quantity", "পরিমাণ")}>
                         <Input
@@ -1170,7 +1343,10 @@ function FieldSales() {
                         placeholder="0.00"
                       />
                     </F>
-                    <Button disabled={createSale.isPending} onClick={() => createSale.mutate()}>
+                    <Button
+                      disabled={createSale.isPending || saleExceedsCreditLimit}
+                      onClick={() => createSale.mutate()}
+                    >
                       {text("Save retailer sale", "বিক্রি সংরক্ষণ")}
                     </Button>
                   </>
@@ -1195,15 +1371,46 @@ function FieldSales() {
                     ))}
                   </select>
                 </F>
+                {collectionCustomer && !tripCustomerBalances.isError && (
+                  <ContextInfo
+                    items={[
+                      {
+                        label: text("Current due", "বর্তমান বাকি"),
+                        value: tripCustomerBalances.isPending ? "…" : bdt(collectionDue),
+                        tone: collectionDue > 0 ? "warning" : "default",
+                      },
+                      {
+                        label: text("Credit limit", "ক্রেডিট সীমা"),
+                        value:
+                          Number(collectionCustomerBalance?.credit_limit ?? 0) > 0
+                            ? bdt(collectionCustomerBalance?.credit_limit ?? 0)
+                            : text("No limit", "সীমা নেই"),
+                      },
+                      {
+                        label: text("Due after collection", "আদায়ের পর বাকি"),
+                        value: bdt(Math.max(0, collectionDue - collectionAmountNumber)),
+                      },
+                    ]}
+                  />
+                )}
                 <F label={text("Amount", "টাকার পরিমাণ")}>
                   <Input
                     type="number"
                     min="0.01"
+                    max={collectionDue}
                     step="0.01"
                     value={collectionAmount}
                     onChange={(e) => setCollectionAmount(e.target.value)}
                   />
                 </F>
+                {collectionExceedsDue && (
+                  <p className="text-xs text-destructive" role="alert">
+                    {text(
+                      `Enter an amount up to the current due of ${bdt(collectionDue)}.`,
+                      `বর্তমান বাকি ${bdt(collectionDue)} পর্যন্ত পরিমাণ লিখুন।`,
+                    )}
+                  </p>
+                )}
                 <F label={text("Note (optional)", "নোট (ঐচ্ছিক)")} optional>
                   <Input
                     value={collectionNote}
@@ -1216,7 +1423,8 @@ function FieldSales() {
                     !openTrip ||
                     openTrip.salesman_user_id !== userId ||
                     openTrip.status !== "open" ||
-                    collectPayment.isPending
+                    collectPayment.isPending ||
+                    collectionExceedsDue
                   }
                   onClick={() => collectPayment.mutate()}
                 >

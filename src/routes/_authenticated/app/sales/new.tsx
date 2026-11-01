@@ -10,6 +10,7 @@ import { useBusiness } from "@/lib/business";
 import { bdt, friendlyError } from "@/lib/format";
 import { useBranches, useMoneyAccounts } from "@/lib/finance";
 import { PageHeader } from "@/components/erp/EntityManager";
+import { ContextInfo } from "@/components/erp/ContextInfo";
 import { F, METHODS, methodLabel, selectCls, today, type Method } from "@/components/erp/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -379,6 +380,11 @@ function NewSale() {
   const total = Math.round((sub - n(discount) + n(tax)) * 100) / 100;
   const paid = pays.reduce((s, p) => s + n(p.amount), 0);
   const due = Math.round((total - paid) * 100) / 100;
+  const customerDue = Number(cust?.current_due ?? 0);
+  const creditLimit = Number(cust?.credit_limit ?? 0);
+  const projectedCustomerDue = Math.max(0, customerDue + due);
+  const exceedsCreditLimit =
+    Boolean(customer) && creditLimit > 0 && projectedCustomerDue > creditLimit;
   const profit = sub - n(discount) - lines.reduce((s, l) => s + l.qty * 0, 0);
   void profit;
 
@@ -547,6 +553,16 @@ function NewSale() {
         title="New Sale"
         sub="Stock, IMEI, customer due, cash and accounts update together."
       />
+      {(branches.error || custs.error || stock.error) && (
+        <div
+          role="alert"
+          className="mb-4 space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {branches.error && <p>Branches: {friendlyError(branches.error)}</p>}
+          {custs.error && <p>Customer balances: {friendlyError(custs.error)}</p>}
+          {stock.error && <p>Stock: {friendlyError(stock.error)}</p>}
+        </div>
+      )}
       {quote.data && (
         <p className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
           Converting quotation <b className="num">{quote.data.h.quote_no}</b> into a sale. Pick the
@@ -605,24 +621,40 @@ function NewSale() {
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </F>
             {cust && (
-              <div className="num flex flex-wrap gap-x-6 gap-y-1 rounded-md bg-muted px-3 py-2 text-xs sm:col-span-3">
-                <span>
-                  Price level: <b>{LEVEL_LABEL[level]}</b>
-                </span>
-                <span>
-                  Current due:{" "}
-                  <b className={Number(cust.current_due) > 0 ? "text-destructive" : ""}>
-                    {bdt(cust.current_due)}
-                  </b>
-                </span>
-                <span>
-                  Credit limit: <b>{bdt(cust.credit_limit)}</b>
-                </span>
-                <span>
-                  Available credit:{" "}
-                  <b>{bdt(Math.max(0, Number(cust.credit_limit) - Number(cust.current_due)))}</b>
-                </span>
-              </div>
+              <ContextInfo
+                className="num sm:col-span-3"
+                items={[
+                  { label: "Price level", value: LEVEL_LABEL[level] },
+                  {
+                    label: "Current due",
+                    value: bdt(customerDue),
+                    tone: customerDue > 0 ? "danger" : "default",
+                  },
+                  {
+                    label: "Credit limit",
+                    value: creditLimit > 0 ? bdt(creditLimit) : "No limit",
+                  },
+                  {
+                    label: "Available credit",
+                    value: creditLimit > 0 ? bdt(Math.max(0, creditLimit - customerDue)) : "—",
+                  },
+                  ...(lines.length
+                    ? [
+                        {
+                          label: "Due after this sale",
+                          value: bdt(projectedCustomerDue),
+                          tone: exceedsCreditLimit ? ("danger" as const) : ("default" as const),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            )}
+            {exceedsCreditLimit && (
+              <p className="text-xs text-destructive sm:col-span-3" role="alert">
+                This sale would exceed the customer’s credit limit by{" "}
+                {bdt(projectedCustomerDue - creditLimit)}. Increase the payment or request approval.
+              </p>
             )}
           </section>
 

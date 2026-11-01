@@ -122,28 +122,26 @@ export function ScanButton({
           return;
         }
 
+        const formats = [
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.CODE_93,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.ITF,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.UPC_EAN_EXTENSION,
+          BarcodeFormat.QR_CODE,
+          BarcodeFormat.DATA_MATRIX,
+          BarcodeFormat.PDF_417,
+          BarcodeFormat.AZTEC,
+          ...(validateImei
+            ? []
+            : [BarcodeFormat.CODABAR, BarcodeFormat.RSS_14, BarcodeFormat.RSS_EXPANDED]),
+        ];
         const hints = new Map<DecodeHintType, unknown>([
-          [
-            DecodeHintType.POSSIBLE_FORMATS,
-            [
-              BarcodeFormat.CODE_128,
-              BarcodeFormat.CODE_39,
-              BarcodeFormat.CODE_93,
-              BarcodeFormat.EAN_13,
-              BarcodeFormat.EAN_8,
-              BarcodeFormat.ITF,
-              BarcodeFormat.UPC_A,
-              BarcodeFormat.UPC_E,
-              BarcodeFormat.UPC_EAN_EXTENSION,
-              BarcodeFormat.QR_CODE,
-              BarcodeFormat.DATA_MATRIX,
-              BarcodeFormat.PDF_417,
-              BarcodeFormat.AZTEC,
-              BarcodeFormat.CODABAR,
-              BarcodeFormat.RSS_14,
-              BarcodeFormat.RSS_EXPANDED,
-            ],
-          ],
+          [DecodeHintType.POSSIBLE_FORMATS, formats],
           [DecodeHintType.TRY_HARDER, true],
         ]);
         const reader = new BrowserMultiFormatReader(hints, {
@@ -214,20 +212,26 @@ export function ScanButton({
             ...scannedCodes.filter((scannedCode) => !current.includes(scannedCode)),
           ]);
         };
-        const requestedVideo = cameraId
-          ? {
-              deviceId: { exact: cameraId },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            }
-          : {
-              facingMode: { ideal: "environment" },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            };
+        const requestedVideo: MediaTrackConstraints = {
+          ...(cameraId
+            ? { deviceId: { exact: cameraId } }
+            : { facingMode: { ideal: "environment" } }),
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        };
         const constraints: MediaStreamConstraints[] = [
           { audio: false, video: requestedVideo },
-          ...(cameraId ? [{ audio: false, video: { facingMode: { ideal: "environment" } } }] : []),
+          {
+            audio: false,
+            video: cameraId
+              ? { deviceId: { exact: cameraId } }
+              : {
+                  facingMode: { ideal: "environment" },
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                },
+          },
+          ...(cameraId ? [] : [{ audio: false, video: { facingMode: { ideal: "environment" } } }]),
           { audio: false, video: true },
         ];
         let controls: IScannerControls | undefined;
